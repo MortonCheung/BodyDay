@@ -50,7 +50,7 @@ b2940d3 feat: 初始化《身体的一天》寝室 3D Demo   ← 原有初始提
 | 项 | 已完成 | 未完成 |
 |---|---|---|
 | 移动端 | 响应式样式（三栏 → 单列、44px 触摸目标）、移动端分支代码 | **未在真机 / 模拟器截图验收** |
-| 《作品开发文档》 | 正文全文（含需求分析、竞品对比、概要设计、模块接口、核心关系数据、页面与交互、技术创新、实际测试、安装使用、开发总结）位于 `delivery/docs/作品开发文档.md` | **`.docx` 排版未生成**（本机无 pandoc；需用 Word/WPS 按模板排版并插入真实截图） |
+| 《作品开发文档》 | ✅ 已生成 `delivery/docs/作品开发文档.docx`（A4、15 页、3.18 MB）：正文五号宋体、一级标题三号黑体、二级标题四号黑体，含 15 张真实运行截图。正文 Markdown 源同步交付 | 复核需在 Word / WPS Office 中打开（宋体/黑体为 Windows 字体；本机 LibreOffice 未加载 CJK 字体，故未产出可信的 PDF 预览） |
 | 性能 | 构建产物体积、按需分包策略与实测分包结果 | **真实 GPU 的帧率 / 性能数据未采集**（自动化环境为 SwiftShader 软件渲染，数据无参考价值，故不给出任何 FPS） |
 
 ### 2.3 未完成（如实标注）
@@ -98,7 +98,7 @@ b2940d3 feat: 初始化《身体的一天》寝室 3D Demo   ← 原有初始提
 | 页面索引与实测数据 | [H5_PAGE_INDEX.md](file:///Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/H5_PAGE_INDEX.md) |
 | 15 页真实截图 | `delivery/test-evidence/screenshots/`（01–15，1440×900） |
 | 源码（可运行） | `delivery/source/`；压缩包 `delivery/source-archive.zip` |
-| 赛事开发文档（正文） | [作品开发文档.md](file:///Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/docs/作品开发文档.md) |
+| 赛事开发文档 | [作品开发文档.md](file:///Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/docs/作品开发文档.md) / [作品开发文档.docx](file:///Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/docs/作品开发文档.docx) |
 | 权利与来源 | [LICENSE_AND_CREDITS.md](file:///Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/LICENSE_AND_CREDITS.md) |
 | 演示视频分镜 | [DEMO_VIDEO_SCRIPT.md](file:///Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/demo/DEMO_VIDEO_SCRIPT.md) |
 | 提交检查清单 | [DELIVERY_CHECKLIST.md](file:///Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/DELIVERY_CHECKLIST.md) |
@@ -143,8 +143,8 @@ npm run build                 # 产物 dist/，纯静态
 1. **学校审核推荐**：汇总、盖章、邮寄（赛事要求，本 Agent 不代做）。
 2. **网络平台报名与提交**：截止 **2026-10-18**。当前**未提交、未上线**。
 3. **演示视频录制**：在装有真实 GPU 的机器上按 `delivery/demo/DEMO_VIDEO_SCRIPT.md` 执行。
-4. **《作品开发文档》`.docx`**：按模板排版（正文五号宋体 / 一级标题三号黑体 /
-   二级标题四号黑体），插入 `delivery/test-evidence/screenshots/` 中的真实截图。
+4. **《作品开发文档》复核**：`.docx` 已生成（宋体 / 黑体 + 15 张真实截图，A4、15 页）。
+   请在 Word 或 WPS Office 中确认排版与截图插入效果。
 5. **移动端真机走查**：iOS Safari 与 Android Chrome 各走一遍两条贯通路线。
 6. **附赠建议**：若评审环境无法访问境外 CDN，可自建 atlas 镜像并通过
    `VITE_BODYDAY_ATLAS_URL` 指向同版本目录（三维舞台已具备完整的错误提示与重试入口）。

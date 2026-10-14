@@ -47,7 +47,7 @@
 |---|---|---|
 | H5 页面（≥10 页） | ✅ 15 页全部可访问（实测） | `docs/H5_PAGE_INDEX.md` + `docs/screenshots/` |
 | 源程序（可安装/构建/启动） | ✅ 完成 | `body-day/`；`delivery/source-archive`（见 §6） |
-| 作品开发文档（附件 1-5） | 🟡 内容已完成，`.docx` 生成待办 | `delivery/docs/作品开发文档.md` |
+| 作品开发文档（附件 1-5） | ✅ 完成 | `delivery/docs/作品开发文档.md`（正文源）+ `delivery/docs/作品开发文档.docx`（已按模板排版：正文五号宋体、一级标题三号黑体、二级标题四号黑体，含 15 张真实截图，15 页） |
 | 演示视频（≤8 分钟） | ❌ **未录制** | `docs/DEMO_VIDEO_SCRIPT.md`（分镜 + 口播 + 检查清单） |
 | 第三方版权说明 | ✅ 完成 | `body-day/THIRD_PARTY_NOTICES.md`、`delivery/LICENSE_AND_CREDITS.md` |
 | 来源与可达性校验 | ✅ 完成 | `docs/SOURCES.md`（19 条，2026-10-14 实测） |
@@ -60,8 +60,9 @@
 2. **平台报名与作品提交**：网络平台报名及提交截止 **2026-10-18**，需人工登录提交。
    BodyDay 未在任何平台提交，也未声称已提交。
 3. **演示视频录制**：需在装有真实 GPU 的机器上按 `docs/DEMO_VIDEO_SCRIPT.md` 录制。
-4. **《作品开发文档》`.docx` 排版**：需按模板要求（正文五号宋体、一级标题三号黑体、
-   二级标题四号黑体）排版并插入真实截图。
+4. **《作品开发文档》复核**：`.docx` 已生成（宋体/黑体 + 15 页真实截图）。
+   注意：模板要求的「宋体 / 黑体」是 Windows 字体，在未安装对应中文字体的 macOS 上
+   可能出现缺字，请用 Word 或 WPS Office 打开复核。
 5. **移动端真机验收**：建议在 iOS Safari 与 Android Chrome 上各走一遍两条贯通路线。
 
 ## 6. 交付包

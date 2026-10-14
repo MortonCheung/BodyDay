@@ -76,7 +76,9 @@
 - [x] 基线勘察 `docs/BASELINE_AND_REFERENCES.md`
 - [x] 发布状态 `docs/RELEASE_STATUS.md`
 - [x] 作品开发文档（附件 1-5）正文 `docs/作品开发文档.md`
-- [ ] 🟡 《作品开发文档》`.docx`：需按模板排版（正文五号宋体、一级标题三号黑体、二级标题四号黑体）并插入真实截图
+- [x] 《作品开发文档》`.docx`：已按模板排版（正文五号宋体、一级标题三号黑体、二级标题四号黑体），
+      并插入 `test-evidence/screenshots/` 的 15 张真实截图（A4、15 页、3.18 MB）
+      —— 复核请在 Word / WPS Office 中打开（宋体/黑体为 Windows 字体）
 - [ ] ❌ **演示视频（≤ 8 分钟）未录制**：分镜、口播与录制清单见 `demo/DEMO_VIDEO_SCRIPT.md`
 - [x] 源码包 `source/` 与 `source-archive.zip`（不含 `node_modules` 与缓存）
 
@@ -85,7 +87,7 @@
 - [ ] 学校汇总、盖章与邮寄（赛事要求的审核推荐环节）
 - [ ] 网络平台报名与作品提交（截止 **2026-10-18**）。**当前未提交，未在任何平台上线**
 - [ ] 演示视频录制（需真实 GPU 环境）
-- [ ] 开发文档 `.docx` 排版与插图
+- [ ] 开发文档 `.docx` 复核：**已生成**，请在 Word / WPS 中确认排版与截图插入效果
 - [ ] 移动端真机走查（iOS Safari / Android Chrome 各一遍两条贯通路线）
 
 ## I. 提交前最终自检

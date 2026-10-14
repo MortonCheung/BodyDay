@@ -11,21 +11,21 @@
 
 | 序号 | 页面 | 路径 | 尺度 | 实测 canvas | 热标 | 可交互元素 | 截图 |
 |---|---|---|---|---|---|---|---|
-| 01 | 封面 | `#/` | — | 0 | — | 11 | [01-cover.png](./screenshots/01-cover.png) |
-| 02 | 使用向导（含尺度练习） | `#/guide` | — | 0 | — | 22 | [02-guide.png](./screenshots/02-guide.png) |
-| 03 | 人体总览 | `#/body` | 人体 | 1 | — | 29 | [03-body.png](./screenshots/03-body.png) |
-| 04 | 人体系统（神经 / 循环 / 淋巴及其余 8 系统） | `#/systems/:systemId` | 系统 | 1 | — | 42 | [04-system-nervous.png](./screenshots/04-system-nervous.png) |
-| 05 | 大脑探索 | `#/organ/brain` | 器官 | 1 | — | 44 | [05-organ-brain.png](./screenshots/05-organ-brain.png) |
-| 06 | 神经元探索 | `#/cell/neuron` | 细胞 | 1 | **4** | 30 | [06-cell-neuron.png](./screenshots/06-cell-neuron.png) |
-| 07 | 神经科普课 | `#/lesson/neural` | 器官 → 细胞 | 1 | — | 30 | [07-lesson-neural.png](./screenshots/07-lesson-neural.png) |
-| 08 | 脾脏探索 | `#/organ/spleen` | 器官 | 1 | — | 30 | [08-organ-spleen.png](./screenshots/08-organ-spleen.png) |
-| 09 | 白细胞探索 | `#/cell/leukocyte` | 细胞 | 1 | **3** | 31 | [09-cell-leukocyte.png](./screenshots/09-cell-leukocyte.png) |
-| 10 | 免疫科普课 | `#/lesson/immune` | 细胞 | 1 | — | 30 | [10-lesson-immune.png](./screenshots/10-lesson-immune.png) |
-| 11 | 心脏探索 | `#/organ/heart` | 器官 | 1 | — | 34 | [11-organ-heart.png](./screenshots/11-organ-heart.png) |
-| 12 | 循环关联课 | `#/lesson/circulation` | 器官 → 细胞 | 1 | — | 28 | [12-lesson-circulation.png](./screenshots/12-lesson-circulation.png) |
-| 13 | 科学关系图 | `#/relations` | — | 0 | — | 64 | [13-relations.png](./screenshots/13-relations.png) |
-| 14 | 学习总结 | `#/summary` | — | 0 | — | 25 | [14-summary.png](./screenshots/14-summary.png) |
-| 15 | 封底 / 关于 | `#/about` | — | 0 | — | 45 | [15-about.png](./screenshots/15-about.png) |
+| 01 | 封面 | `#/` | — | 0 | — | 11 | [01-cover.png](../../docs/screenshots/01-cover.png) |
+| 02 | 使用向导（含尺度练习） | `#/guide` | — | 0 | — | 22 | [02-guide.png](../../docs/screenshots/02-guide.png) |
+| 03 | 人体总览 | `#/body` | 人体 | 1 | — | 29 | [03-body.png](../../docs/screenshots/03-body.png) |
+| 04 | 人体系统（神经 / 循环 / 淋巴及其余 8 系统） | `#/systems/:systemId` | 系统 | 1 | — | 42 | [04-system-nervous.png](../../docs/screenshots/04-system-nervous.png) |
+| 05 | 大脑探索 | `#/organ/brain` | 器官 | 1 | — | 44 | [05-organ-brain.png](../../docs/screenshots/05-organ-brain.png) |
+| 06 | 神经元探索 | `#/cell/neuron` | 细胞 | 1 | **4** | 30 | [06-cell-neuron.png](../../docs/screenshots/06-cell-neuron.png) |
+| 07 | 神经科普课 | `#/lesson/neural` | 器官 → 细胞 | 1 | — | 30 | [07-lesson-neural.png](../../docs/screenshots/07-lesson-neural.png) |
+| 08 | 脾脏探索 | `#/organ/spleen` | 器官 | 1 | — | 30 | [08-organ-spleen.png](../../docs/screenshots/08-organ-spleen.png) |
+| 09 | 白细胞探索 | `#/cell/leukocyte` | 细胞 | 1 | **3** | 31 | [09-cell-leukocyte.png](../../docs/screenshots/09-cell-leukocyte.png) |
+| 10 | 免疫科普课 | `#/lesson/immune` | 细胞 | 1 | — | 30 | [10-lesson-immune.png](../../docs/screenshots/10-lesson-immune.png) |
+| 11 | 心脏探索 | `#/organ/heart` | 器官 | 1 | — | 34 | [11-organ-heart.png](../../docs/screenshots/11-organ-heart.png) |
+| 12 | 循环关联课 | `#/lesson/circulation` | 器官 → 细胞 | 1 | — | 28 | [12-lesson-circulation.png](../../docs/screenshots/12-lesson-circulation.png) |
+| 13 | 科学关系图 | `#/relations` | — | 0 | — | 64 | [13-relations.png](../../docs/screenshots/13-relations.png) |
+| 14 | 学习总结 | `#/summary` | — | 0 | — | 25 | [14-summary.png](../../docs/screenshots/14-summary.png) |
+| 15 | 封底 / 关于 | `#/about` | — | 0 | — | 45 | [15-about.png](../../docs/screenshots/15-about.png) |
 
 **实测结论：15/15 页全部可达并完成渲染，无降级提示、无控制台错误。**
 三维页面活跃 Canvas 均为 **1**（符合「同一时刻单活跃 WebGL 场景」）；
