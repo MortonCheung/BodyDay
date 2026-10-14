@@ -9,12 +9,13 @@
 | 项 | 值 |
 |---|---|
 | 远端 | `https://github.com/MortonCheung/BodyDay.git`（**沿用原仓库，未新建**） |
-| 分支 | `main`（与 `origin/main` 同步于提交 `1da523a`） |
-| 工作区 | 存在**未提交**改动：本次空间工作台改版（新增 `resolveView.ts`、`features/workbench/`，删除 `ScaleVeil.tsx` 与独立课程/向导/关系图/学习总结页面，重建 11 页口径）与交付文档更新。**本 Agent 未提交、未推送**。 |
+| 分支 | `main`（与 `origin/main` 同步于提交 `a863a3b`） |
+| 工作区 | 本次空间工作台改版已提交并推送（`a863a3b`）：新增 `resolveView.ts`、`features/workbench/`，删除 `ScaleVeil.tsx` 与独立课程/向导/关系图/学习总结页面，重建 11 页口径，并同步交付文档与截图。提交后工作区应为干净状态。 |
 
 历史提交（在原有历史上演进，未强推）：
 
 ```
+a863a3b refactor(body-day): 改为单空间工作台，收敛为 11 页探索界面
 1da523a docs: 生成赛事《作品开发文档》.docx 并同步交付包
 20d1130 docs: 最终交付报告与截图链接修正
 4a4667f docs: 交付文档、来源与版权材料
