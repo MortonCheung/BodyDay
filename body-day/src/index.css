@@ -1,0 +1,49 @@
+:root {
+  --ink: #4a3226;
+  --cream: #faf2e5;
+  --paper: rgba(250, 242, 229, 0.9);
+  --line: rgba(74, 50, 38, 0.16);
+  --accent: #c9634c;
+  --amber: #e0a24a;
+  --sage: #8fa87e;
+  --teal: #4f7d8c;
+
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #cfe6f2;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+.app-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  touch-action: none;
+}

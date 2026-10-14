@@ -1,0 +1,21 @@
+# 依赖与构建产物
+node_modules/
+dist/
+dist-ssr/
+
+# 系统与编辑器
+.DS_Store
+.vscode/
+.idea/
+
+# 原始素材下载目录（仅保留项目内 public/models 下实际使用的资产）
+Asset/
+
+# 比赛附件文档，不入库
+*.doc
+*.docx
+
+# 本地环境
+.env
+.env.*
+*.local
