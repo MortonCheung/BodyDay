@@ -1,0 +1,92 @@
+/**
+ * BodyDay 设计令牌 —— 「暖纸 + 解剖图册」体系。
+ *
+ * 设计立场：暖白纸面、近黑墨色、克制层级；视觉主角永远是 3D 解剖对象本身。
+ * 彩色只承担「解剖系统 / 尺度」的语义，不作为装饰。
+ * 参考了本机 AgriScope 现行设计基线的**原则**（暖白、直角、细线、低密度），
+ * 但色板、语义与命名均为 BodyDay 独立定义。
+ */
+:root {
+  /* ---- 纸面与墨色 ---- */
+  --bd-paper: #f7f5f1;
+  --bd-paper-raised: #fcfbf8;
+  --bd-paper-sunken: #f0ede7;
+  --bd-paper-deep: #e8e4dc;
+  --bd-raised: #fffefc;
+
+  --bd-ink: #1a1917;
+  --bd-ink-soft: #4a4641;
+  --bd-ink-muted: #736d65;
+  --bd-ink-faint: #9c968c;
+  --bd-ink-ghost: #bdb7ad;
+
+  --bd-rule: rgb(26 25 23 / 0.12);
+  --bd-rule-soft: rgb(26 25 23 / 0.07);
+  --bd-rule-strong: rgb(26 25 23 / 0.26);
+
+  --bd-hover: rgb(26 25 23 / 0.04);
+  --bd-selected: rgb(26 25 23 / 0.07);
+
+  --bd-focus: rgb(26 25 23 / 0.72);
+  --bd-danger: #a8402e;
+
+  /* ---- 解剖系统语义色（低饱和，色盲友好，黑白可辨）-----
+     神经 → 石板蓝；循环 → 陶土红；免疫 → 橄榄绿；
+     呼吸 → 灰蓝；骨骼 → 沙褐；消化 → 土黄；内分泌 → 灰紫；泌尿 → 灰青。 */
+  --bd-neural: #4a5568;
+  --bd-vascular: #a0402f;
+  --bd-immune: #5f7a4e;
+  --bd-respiratory: #4e6e8e;
+  --bd-skeletal: #8a7a55;
+  --bd-digestive: #8a6f4a;
+  --bd-endocrine: #7c6a86;
+  --bd-muscular: #9c6b5a;
+  --bd-renal: #6e8a85;
+  --bd-generic: #6b6670;
+
+  /* ---- 尺度语义（跨尺度导航）---- */
+  --bd-scale-body: #4a4641;
+  --bd-scale-organ: #a0402f;
+  --bd-scale-cell: #5f7a4e;
+  --bd-scale-part: #4a5568;
+
+  /* ---- 状态语义 ---- */
+  --bd-ok: #5f7a4e;
+  --bd-warn: #b4842f;
+  --bd-info: #4e6e8e;
+
+  /* ---- 直角优先：文字型 UI 一律直角；pill 只给圆点/进度球 ---- */
+  --bd-radius: 0px;
+  --bd-radius-pill: 999px;
+
+  /* ---- 阴影：极克制，只给抬升面板 ---- */
+  --bd-shadow-resting: 0 1px 2px rgb(26 25 23 / 0.04);
+  --bd-shadow-raised:
+    0 10px 32px -14px rgb(26 25 23 / 0.2),
+    0 2px 6px -3px rgb(26 25 23 / 0.08);
+
+  /* ---- 缓动 ---- */
+  --bd-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --bd-ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* ---- 时长令牌：与 src/design/motion.ts 一一对应，禁止在组件里写散落毫秒数 ---- */
+  --bd-dur-fast: 180ms;
+  --bd-dur-content: 160ms;
+  --bd-dur-normal: 280ms;
+  --bd-dur-slow: 440ms;
+  --bd-dur-route: 420ms;
+  --bd-dur-underline: 220ms;
+  --bd-dur-selection: 320ms;
+  --bd-dur-hover-lift: 200ms;
+  --bd-dur-scale: 820ms;
+  --bd-dur-overlay: 460ms;
+
+  /* ---- z-index ---- */
+  --bd-z-base: 0;
+  --bd-z-sticky: 10;
+  --bd-z-header: 40;
+  --bd-z-float: 60;
+  --bd-z-overlay: 90;
+  --bd-z-modal: 120;
+  --bd-z-toast: 140;
+}

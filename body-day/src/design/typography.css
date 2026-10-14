@@ -1,0 +1,120 @@
+/**
+ * BodyDay 排版体系。
+ *
+ * 展示层用衬线（出版物 / 医学图册感），正文与控件用系统无衬线，
+ * 尺度与技术标记用等宽。中文大标题放宽行高，避免 Safari 下两行粘连。
+ */
+:root {
+  --bd-font-display: "Songti SC", "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, "Times New Roman", serif;
+  --bd-font-text: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --bd-font-mono: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  --bd-fs-display: clamp(2.9rem, 8.2vw, 7rem);
+  --bd-fs-hero: clamp(2rem, 4.6vw, 3.6rem);
+  --bd-fs-section: clamp(1.6rem, 2.9vw, 2.5rem);
+  --bd-fs-title: clamp(1.2rem, 1.6vw, 1.45rem);
+  --bd-fs-lead: clamp(1.02rem, 1.4vw, 1.24rem);
+  --bd-fs-body: 1rem;
+  --bd-fs-small: 0.875rem;
+  --bd-fs-meta: 0.75rem;
+  --bd-fs-micro: 0.6875rem;
+
+  --bd-lh-tight: 1.08;
+  --bd-lh-heading: 1.26;
+  --bd-lh-body: 1.78;
+  --bd-lh-relaxed: 1.9;
+
+  --bd-tracking-display: -0.02em;
+  --bd-tracking-label: 0.16em;
+  --bd-tracking-loosen: 0.06em;
+}
+
+.bd-display {
+  margin: 0;
+  font-family: var(--bd-font-display);
+  font-weight: 400;
+  font-size: var(--bd-fs-display);
+  line-height: var(--bd-lh-tight);
+  letter-spacing: var(--bd-tracking-display);
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.bd-hero {
+  margin: 0;
+  font-family: var(--bd-font-display);
+  font-weight: 400;
+  font-size: var(--bd-fs-hero);
+  line-height: var(--bd-lh-heading);
+  letter-spacing: var(--bd-tracking-display);
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.bd-section-title {
+  margin: 0;
+  font-family: var(--bd-font-display);
+  font-weight: 400;
+  font-size: var(--bd-fs-section);
+  line-height: var(--bd-lh-heading);
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+.bd-title {
+  margin: 0;
+  font-family: var(--bd-font-text);
+  font-weight: 600;
+  font-size: var(--bd-fs-title);
+  line-height: 1.38;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+}
+.bd-lead {
+  margin: 0;
+  max-width: 48ch;
+  color: var(--bd-ink-soft);
+  font-size: var(--bd-fs-lead);
+  line-height: 1.62;
+}
+.bd-body {
+  margin: 0;
+  max-width: var(--bd-measure, 68ch);
+  color: var(--bd-ink-soft);
+  font-size: var(--bd-fs-body);
+  line-height: var(--bd-lh-body);
+}
+.bd-body-secondary {
+  margin: 0;
+  max-width: var(--bd-measure, 68ch);
+  color: var(--bd-ink-muted);
+  font-size: var(--bd-fs-small);
+  line-height: 1.66;
+}
+.bd-label {
+  display: block;
+  margin: 0;
+  color: var(--bd-ink-muted);
+  font-family: var(--bd-font-mono);
+  font-size: var(--bd-fs-micro);
+  letter-spacing: var(--bd-tracking-label);
+  text-transform: uppercase;
+}
+.bd-meta {
+  margin: 0;
+  color: var(--bd-ink-muted);
+  font-family: var(--bd-font-mono);
+  font-size: var(--bd-fs-meta);
+  letter-spacing: 0.02em;
+}
+.bd-caption {
+  margin: 0;
+  color: var(--bd-ink-faint);
+  font-size: var(--bd-fs-meta);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+.bd-number {
+  font-family: var(--bd-font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.bd-tabular { font-variant-numeric: tabular-nums; }
