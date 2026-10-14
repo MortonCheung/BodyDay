@@ -6,7 +6,7 @@ import { ATLAS_ATTRIBUTION_TEXT } from '../../services/organAssets';
 import { resolveCatalogUrl } from '../../services/atlas';
 
 /**
- * 15 封底 / 关于。
+ * 11 · 关于 · 数据与方法（封底）。
  *
  * 这一页承担四件事：方法说明、完整来源表、第三方版权与许可、科学免责声明。
  * 同时公开页面的真实结构，便于评审逐页核对。
@@ -14,13 +14,13 @@ import { resolveCatalogUrl } from '../../services/atlas';
 
 export function AboutPage() {
   return (
-    <div className="bd-container bd-container--prose bd-page">
+    <div className="bd-container bd-container--prose bd-page" data-paper-surface>
       <div className="bd-stack bd-stack--wide">
         <PageHeader
-          eyebrow="15 · 封底 / 关于"
+          eyebrow="11 · 关于 · 数据与方法"
           title="BodyDay 是怎么做出来的"
           lead="把「来源、边界、许可」写在最后一页，是因为科普作品的公信力和它的画面一样重要。"
-          crumbs={[{ label: '封面', to: ROUTES.cover }, { label: '关于' }]}
+          crumbs={[{ label: '首页', to: ROUTES.cover }, { label: '关于' }]}
         />
 
         <section className="bd-section">
@@ -53,7 +53,7 @@ export function AboutPage() {
             <div className="bd-panel bd-panel--flat">
               <span className="bd-label">来源可追溯</span>
               <p className="bd-body-secondary">
-                每条知识、每道测验都带来源编号；来源表列出出版者、标题、原始链接与访问日期。
+                每条知识、每道检验题都带来源编号；来源表列出出版者、标题、原始链接与访问日期。
                 医学细节若无法核对，标注为待核，不进入正式科普正文。
               </p>
             </div>
@@ -182,7 +182,7 @@ export function AboutPage() {
                 <tr key={p.no}>
                   <td>{p.no}</td>
                   <td>
-                    <Link to={p.path.replace(':systemId', 'nervous-system').replace(':organId', 'brain').replace(':cellId', 'neuron').replace(':lessonId', 'neural')}>
+                    <Link to={p.path}>
                       {p.title}
                     </Link>
                   </td>
@@ -204,11 +204,11 @@ export function AboutPage() {
             <Link className="bd-button bd-button--primary" to={ROUTES.body}>
               回到人体总览
             </Link>
-            <Link className="bd-button" to={ROUTES.guide}>
-              再看使用向导
+            <Link className="bd-button" to={ROUTES.cell('neuron')}>
+              看看细胞层
             </Link>
-            <Link className="bd-button bd-button--quiet" to={ROUTES.summary}>
-              查看学习记录
+            <Link className="bd-button bd-button--quiet" to={ROUTES.cover}>
+              回到首页
             </Link>
           </div>
         </section>

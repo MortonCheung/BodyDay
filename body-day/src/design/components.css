@@ -41,6 +41,31 @@
 .bd-header__spacer { flex: 1 1 auto; }
 .bd-header__actions { display: flex; align-items: center; gap: var(--bd-space-2); }
 
+/* 主导航：稳定的左中右结构，切换页面时位置不跳动 */
+.bd-nav { display: flex; align-items: center; gap: var(--bd-space-6); }
+.bd-nav__item {
+  position: relative;
+  padding: 6px 0;
+  color: var(--bd-ink-muted);
+  font-size: var(--bd-fs-small);
+  white-space: nowrap;
+  transition: color var(--bd-dur-fast) var(--bd-ease);
+}
+.bd-nav__item:hover { color: var(--bd-ink); }
+.bd-nav__item[data-active="true"] { color: var(--bd-ink); }
+.bd-nav__item::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 1px;
+  background: var(--bd-ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--bd-dur-underline) var(--bd-ease);
+}
+.bd-nav__item:hover::after { transform: scaleX(0.5); }
+.bd-nav__item[data-active="true"]::after { transform: scaleX(1); }
+
 /* 模式切换：文字 + 底线指示，不用胶囊 */
 .bd-modeswitch { display: flex; align-items: center; gap: var(--bd-space-4); }
 .bd-modeswitch__item {

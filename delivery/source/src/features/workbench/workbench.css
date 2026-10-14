@@ -1,0 +1,281 @@
+/* ============ BodyDay 空间工作台 ============
+   中央是唯一的三维人体，左栏是结构与图层操作，右栏是随选中联动的知识纸条。
+   两栏各自独立滚动，整页不跟随滚动；切换页面时只更新镜头与两侧内容。 */
+
+:root {
+  --bd-wb-left: clamp(212px, 16vw, 258px);
+  --bd-wb-right: clamp(292px, 24vw, 356px);
+  --bd-wb-gap: clamp(12px, 1.5vw, 24px);
+  --bd-wb-gutter-x: clamp(12px, 2.2vw, 32px);
+  --bd-wb-gutter-y: clamp(12px, 2.4vh, 26px);
+}
+
+.bd-workbench {
+  height: calc(100dvh - var(--bd-nav-height));
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--bd-wb-left) minmax(0, 1fr) var(--bd-wb-right);
+  gap: var(--bd-wb-gap);
+  padding: var(--bd-wb-gutter-y) var(--bd-wb-gutter-x);
+  overflow: hidden;
+}
+
+/* 两侧纸条：纸面 + 细线，独立滚动 */
+.bd-wb-rail,
+.bd-wb-paper {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  background: var(--bd-paper-raised);
+  border: 1px solid var(--bd-rule-soft);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--bd-rule) 40%, transparent);
+}
+.bd-wb-rail {
+  padding: var(--bd-space-5) var(--bd-space-4) var(--bd-space-8);
+  background: var(--bd-paper-sunken);
+}
+.bd-wb-paper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bd-space-6);
+  padding: var(--bd-space-5) var(--bd-space-5) var(--bd-space-8);
+}
+
+/* 中央：唯一舞台 */
+.bd-wb-column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.bd-wb-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--bd-rule);
+  background:
+    radial-gradient(120% 90% at 50% 14%, var(--bd-paper-raised) 0%, var(--bd-paper) 56%, var(--bd-paper-sunken) 100%);
+}
+.bd-wb-stage[data-stage="atlas"] { cursor: grab; }
+.bd-wb-stage[data-stage="atlas"]:active { cursor: grabbing; }
+/* 降级/加载状态铺满舞台，而不是按普通块级元素排版 */
+.bd-wb-stage > .bd-state { position: absolute; inset: 0; }
+
+/* 舞台角落信息（细线标签，不用卡片） */
+.bd-wb-hud {
+  position: absolute;
+  left: var(--bd-space-4);
+  top: var(--bd-space-4);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(38ch, 60%);
+  pointer-events: none;
+}
+.bd-wb-hud-bottom {
+  position: absolute;
+  right: var(--bd-space-4);
+  bottom: var(--bd-space-3);
+  z-index: 2;
+  display: flex;
+  gap: var(--bd-space-3);
+  pointer-events: none;
+}
+.bd-wb-stage__actions {
+  position: absolute;
+  right: var(--bd-space-4);
+  top: var(--bd-space-4);
+  z-index: 3;
+  display: flex;
+  gap: 6px;
+}
+.bd-wb-stage__actions .bd-button {
+  background: color-mix(in srgb, var(--bd-paper) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+/* 加载 / 重载：覆盖在已有画面上，不卸载场景 */
+.bd-wb-stage__loading {
+  position: absolute;
+  left: 50%;
+  bottom: var(--bd-space-5);
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: var(--bd-space-3);
+  padding: 6px 12px;
+  border: 1px solid var(--bd-rule);
+  background: color-mix(in srgb, var(--bd-paper-raised) 92%, transparent);
+  backdrop-filter: blur(6px);
+  font-size: var(--bd-fs-meta);
+  color: var(--bd-ink-muted);
+  white-space: nowrap;
+}
+.bd-wb-stage__spinner {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--bd-rule-strong);
+  border-top-color: var(--bd-ink);
+  border-radius: 50%;
+  animation: bd-spin 900ms linear infinite;
+}
+@keyframes bd-spin { to { transform: rotate(360deg); } }
+
+/* 封面欢迎层：第一帧就已存在真实场景，这里只是一层文字 */
+.bd-welcome {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--bd-space-4);
+  padding: clamp(20px, 4vw, 60px);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 900ms var(--bd-ease);
+}
+.bd-welcome[data-open="false"] { opacity: 0; }
+.bd-welcome__eyebrow { color: var(--bd-ink-faint); }
+.bd-welcome__title { max-width: 14ch; }
+.bd-welcome__line {
+  max-width: 30ch;
+  color: var(--bd-ink-soft);
+  font-size: var(--bd-fs-lead);
+  line-height: 1.7;
+}
+.bd-welcome__hint {
+  margin-top: var(--bd-space-2);
+  color: var(--bd-ink-faint);
+  font-size: var(--bd-fs-meta);
+  letter-spacing: 0.04em;
+}
+
+/* ---- 纸张区块：统一的分节语言 ---- */
+.bd-wb-section { display: flex; flex-direction: column; gap: var(--bd-space-3); }
+.bd-wb-section + .bd-wb-section { border-top: 1px solid var(--bd-rule-soft); padding-top: var(--bd-space-5); }
+.bd-wb-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bd-space-3);
+  flex-wrap: wrap;
+}
+
+/* ---- 右纸条头部：尺度 + 秒级时钟 ---- */
+.bd-wb-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 2px solid var(--bd-ink);
+  padding-bottom: var(--bd-space-3);
+}
+.bd-wb-head__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bd-space-3);
+  flex-wrap: wrap;
+}
+.bd-clock {
+  font-family: var(--bd-font-mono);
+  font-size: var(--bd-fs-meta);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--bd-ink-soft);
+}
+.bd-clock__zone { color: var(--bd-ink-faint); margin-left: 6px; }
+
+/* ---- 尺度轴：低调的当前位置指示 ---- */
+.bd-scaleline { display: flex; align-items: center; gap: 0; }
+.bd-scaleline__node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  color: var(--bd-ink-ghost);
+  transition: color var(--bd-dur-normal) var(--bd-ease);
+}
+.bd-scaleline__node[data-active="true"] { color: var(--bd-ink); }
+.bd-scaleline__node[data-past="true"] { color: var(--bd-ink-faint); }
+.bd-scaleline__tick { width: 1px; height: 12px; background: currentColor; opacity: 0.5; }
+.bd-scaleline__node[data-active="true"] .bd-scaleline__tick { opacity: 1; height: 18px; }
+.bd-scaleline__label {
+  font-family: var(--bd-font-mono);
+  font-size: var(--bd-fs-micro);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.bd-scaleline__link { flex: 1 1 auto; height: 1px; background: var(--bd-rule); }
+
+/* ---- 通用小组件 ---- */
+.bd-wb-note { color: var(--bd-ink-faint); font-size: var(--bd-fs-meta); line-height: 1.6; }
+.bd-wb-empty { color: var(--bd-ink-muted); font-size: var(--bd-fs-small); line-height: 1.7; }
+.bd-wb-actions { display: flex; flex-wrap: wrap; gap: var(--bd-space-2); }
+
+/* ---- 引导教学模式：同一张纸上的步骤引导 ---- */
+.bd-guide { display: flex; flex-direction: column; gap: var(--bd-space-4); }
+.bd-guide__steps { display: flex; align-items: center; gap: 3px; }
+.bd-guide__seg { flex: 1 1 0; height: 3px; background: var(--bd-rule); position: relative; overflow: hidden; }
+.bd-guide__seg[data-done="true"]::after { content: ""; position: absolute; inset: 0; background: var(--bd-ink); }
+.bd-guide__step { display: flex; flex-direction: column; gap: var(--bd-space-3); }
+.bd-guide__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bd-space-3);
+  flex-wrap: wrap;
+}
+.bd-guide__body { color: var(--bd-ink-soft); font-size: var(--bd-fs-small); line-height: 1.76; }
+.bd-guide__actions { display: flex; gap: var(--bd-space-2); }
+.bd-guide__target {
+  border-left: 2px solid var(--bd-ink);
+  padding-left: var(--bd-space-3);
+  color: var(--bd-ink-soft);
+  font-size: var(--bd-fs-small);
+  line-height: 1.7;
+}
+
+/* ---- 响应式：始终保留独立滚动的两条纸条 ---- */
+@media (max-width: 1180px) {
+  :root {
+    --bd-wb-left: 200px;
+    --bd-wb-right: 286px;
+  }
+}
+@media (max-width: 1000px) {
+  .bd-workbench {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: 44dvh minmax(0, 1fr);
+  }
+  .bd-wb-column { grid-column: 1 / -1; grid-row: 1; }
+  .bd-wb-rail { grid-column: 1; grid-row: 2; }
+  .bd-wb-paper { grid-column: 2; grid-row: 2; }
+  .bd-welcome__title { max-width: 20ch; }
+}
+@media (max-width: 720px) {
+  .bd-workbench {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 38dvh minmax(0, 0.85fr) minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px 10px 14px;
+  }
+  .bd-wb-column { grid-column: 1; grid-row: 1; }
+  .bd-wb-rail { grid-column: 1; grid-row: 2; padding: var(--bd-space-4) var(--bd-space-3) var(--bd-space-6); }
+  .bd-wb-paper { grid-column: 1; grid-row: 3; padding: var(--bd-space-4) var(--bd-space-3) var(--bd-space-6); }
+  .bd-wb-hud { max-width: 70%; }
+  .bd-welcome { padding: 20px; }
+  .bd-welcome__hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bd-welcome { transition: none; }
+  .bd-wb-stage__spinner { animation: none; }
+}

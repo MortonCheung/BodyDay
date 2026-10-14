@@ -1,68 +1,67 @@
 # BodyDay · H5 页面索引与逐页截图（H5_PAGE_INDEX）
 
-> 赛事要求 H5 页面原则上不少于 10 页（含封面封底）、控制在 20 页以内。
-> BodyDay 规划 **15 个可独立直达、具有实质内容与独立交互**的页面，逐一截图留证。
+> 赛事要求 H5 交互式作品「页面不少于 10 页（含封面、封底），总页面控制在 20 页以内」。
+> BodyDay 按 **11 页**交付（含封面 `/` 与封底 `/about`），每个页面都可独立直达、可单独截图。
 >
-> 全部截图由 Playwright 在 **1440×900** 视口下对**真实运行的开发服务器**抓取，
-> 路径见 `docs/screenshots/`。抓取时间：2026-10-15 01:14–01:40（本机时间）。
-> 抓取时同时记录每页的活跃 Canvas 数、热标数、可交互元素数与是否有降级提示。
+> 全站采用**一个空间工作台**：中央永远是同一具三维人体（Vanatome / Z-Anatomy atlas，经
+> `@vixotic/vanatome-react` 渲染），左右两侧是两条独立滚动的纸条面板。
+> **除封底外，10 个探索页共用同一个工作台组件与同一套左右纸条**；封底 `/about` 是独立阅读页面。
+> 人体 → 系统 → 器官 → 细胞之间的差别，只体现为**镜头位置与两侧面板内容的变化**，不换页面外壳、不重挂三维场景。
+>
+> 全部截图由 Playwright（headless + SwiftShader 软件渲染）在 **1440×900** 视口下对**真实运行的开发服务器**抓取，
+> 路径见 `docs/screenshots/`（11 张，命名 `01-cover.png` … `11-about.png`），
+> 并复制到 `delivery/test-evidence/screenshots/`。抓取时间：2026-10-15（本机时间）。
 
 ## 1. 页面清单与实测数据
 
-| 序号 | 页面 | 路径 | 尺度 | 实测 canvas | 热标 | 可交互元素 | 截图 |
-|---|---|---|---|---|---|---|---|
-| 01 | 封面 | `#/` | — | 0 | — | 11 | [01-cover.png](../../docs/screenshots/01-cover.png) |
-| 02 | 使用向导（含尺度练习） | `#/guide` | — | 0 | — | 22 | [02-guide.png](../../docs/screenshots/02-guide.png) |
-| 03 | 人体总览 | `#/body` | 人体 | 1 | — | 29 | [03-body.png](../../docs/screenshots/03-body.png) |
-| 04 | 人体系统（神经 / 循环 / 淋巴及其余 8 系统） | `#/systems/:systemId` | 系统 | 1 | — | 42 | [04-system-nervous.png](../../docs/screenshots/04-system-nervous.png) |
-| 05 | 大脑探索 | `#/organ/brain` | 器官 | 1 | — | 44 | [05-organ-brain.png](../../docs/screenshots/05-organ-brain.png) |
-| 06 | 神经元探索 | `#/cell/neuron` | 细胞 | 1 | **4** | 30 | [06-cell-neuron.png](../../docs/screenshots/06-cell-neuron.png) |
-| 07 | 神经科普课 | `#/lesson/neural` | 器官 → 细胞 | 1 | — | 30 | [07-lesson-neural.png](../../docs/screenshots/07-lesson-neural.png) |
-| 08 | 脾脏探索 | `#/organ/spleen` | 器官 | 1 | — | 30 | [08-organ-spleen.png](../../docs/screenshots/08-organ-spleen.png) |
-| 09 | 白细胞探索 | `#/cell/leukocyte` | 细胞 | 1 | **3** | 31 | [09-cell-leukocyte.png](../../docs/screenshots/09-cell-leukocyte.png) |
-| 10 | 免疫科普课 | `#/lesson/immune` | 细胞 | 1 | — | 30 | [10-lesson-immune.png](../../docs/screenshots/10-lesson-immune.png) |
-| 11 | 心脏探索 | `#/organ/heart` | 器官 | 1 | — | 34 | [11-organ-heart.png](../../docs/screenshots/11-organ-heart.png) |
-| 12 | 循环关联课 | `#/lesson/circulation` | 器官 → 细胞 | 1 | — | 28 | [12-lesson-circulation.png](../../docs/screenshots/12-lesson-circulation.png) |
-| 13 | 科学关系图 | `#/relations` | — | 0 | — | 64 | [13-relations.png](../../docs/screenshots/13-relations.png) |
-| 14 | 学习总结 | `#/summary` | — | 0 | — | 25 | [14-summary.png](../../docs/screenshots/14-summary.png) |
-| 15 | 封底 / 关于 | `#/about` | — | 0 | — | 45 | [15-about.png](../../docs/screenshots/15-about.png) |
+| 序号 | 标题 | 路径 | 尺度 | 实测 canvas | 3D 热标 | 截图 |
+|---|---|---|---|---|---|---|
+| 01 | 封面 · 身体的一天 | `#/` | 人体 | 1 | — | [01-cover.png](./test-evidence/screenshots/01-cover.png) |
+| 02 | 人体总览 | `#/body` | 人体 | 1 | — | [02-body.png](./test-evidence/screenshots/02-body.png) |
+| 03 | 神经系统 | `#/systems/nervous-system` | 系统 | 1 | — | [03-system-nervous.png](./test-evidence/screenshots/03-system-nervous.png) |
+| 04 | 循环系统 | `#/systems/cardiovascular-system` | 系统 | 1 | — | [04-system-cardiovascular.png](./test-evidence/screenshots/04-system-cardiovascular.png) |
+| 05 | 淋巴系统 | `#/systems/lymphatic-system` | 系统 | 1 | — | [05-system-lymphatic.png](./test-evidence/screenshots/05-system-lymphatic.png) |
+| 06 | 大脑 | `#/organ/brain` | 器官 | 1 | — | [06-organ-brain.png](./test-evidence/screenshots/06-organ-brain.png) |
+| 07 | 心脏 | `#/organ/heart` | 器官 | 1 | — | [07-organ-heart.png](./test-evidence/screenshots/07-organ-heart.png) |
+| 08 | 脾脏 | `#/organ/spleen` | 器官 | 1 | — | [08-organ-spleen.png](./test-evidence/screenshots/08-organ-spleen.png) |
+| 09 | 神经元 | `#/cell/neuron` | 细胞 | 1 | **4** | [09-cell-neuron.png](./test-evidence/screenshots/09-cell-neuron.png) |
+| 10 | 白细胞 | `#/cell/leukocyte` | 细胞 | 1 | **3** | [10-cell-leukocyte.png](./test-evidence/screenshots/10-cell-leukocyte.png) |
+| 11 | 关于 · 数据与方法 | `#/about` | — | **0** | — | [11-about.png](./test-evidence/screenshots/11-about.png) |
 
-**实测结论：15/15 页全部可达并完成渲染，无降级提示、无控制台错误。**
-三维页面活跃 Canvas 均为 **1**（符合「同一时刻单活跃 WebGL 场景」）；
-非三维页面为 **0**（首屏不加载三维运行时）。
+**实测结论：11/11 页全部可达并完成渲染，控制台 error 与 pageerror 数量为 0。**
 
-> 「可交互元素」为页面内 `button` 与 `a[href]` 的 DOM 计数，用于客观说明每页都有实质交互，而非静态长图。
+- 10 个探索页活跃 Canvas 均为 **1**（同一时刻单活跃 WebGL 场景；封面第一帧起就是真实三维场景）；
+- 封底 `/about` 为 **0**（不加载 three.js，首屏不承担三维体积）；
+- 神经元页 4 个 DOM 热标（胞体 / 树突 / 轴突 / 髓鞘），白细胞页 3 个（细胞膜 / 细胞质 / 细胞核）；
+- 系统页切换时会重新加载对应 atlas bundle，但已装配过的查看器保持挂载，只在画面上给一条「正在切换解剖图层」的提示。
 
-## 2. 逐页内容与独立交互
+## 2. 逐页「该页能做什么」
 
-| 序号 | 独立内容 | 最低可验收交互 |
-|---|---|---|
-| 01 | 产品身份、科普目标、原创尺度主轴 SVG、三种进入方式 | 进入自由探索 / 引导教学 / 使用向导 |
-| 02 | 操作方式、尺度规则、科学示意边界；**尺度练习** | 按 人体→器官→细胞 依次点击三个节点，完成或跳过均留下明确状态 |
-| 03 | 完整人体、11 个系统列表、可聚焦结构列表 | 转动模型；选择系统；从结构列表聚焦；复位视角；取消选中 |
-| 04 | 单个系统的定位说明 + 该系统真实结构清单 | 系统切换（路由级）、结构聚焦、返回人体 |
-| 05 | 脑的体内独立视图、区域说明（端脑/小脑/脑干）、相邻结构 | 旋转/缩放、相邻结构点选、进入细胞层、复位到器官取景 |
-| 06 | 神经元四部件（胞体/树突/轴突/髓鞘） | 4 个 3D 热标 + 左栏列表点选，右侧知识联动 |
-| 07 | 10 步引导课程：观察 → 聚焦 → 解释 → 跨尺度 → 部件选择 → 2 道测验 → 小结 | 每步要求真实模型交互（转动/聚焦/选中/跨尺度），可上一步/跳过/重做，进度持久化 |
-| 08 | 脾脏独立视图、免疫关系说明、相邻结构 | 同器官层交互 + 进入白细胞 |
-| 09 | 白细胞三部件（细胞膜/细胞质/细胞核） | 3 个 3D 热标 + 列表点选，含「白细胞主要在骨髓生成」的机制说明 |
-| 10 | 10 步免疫课程，含**常见误解纠正**与 2 道测验 | 同课程交互规则 |
-| 11 | 心脏四腔/瓣膜/循环关系说明与独立视图 | 同器官层交互 + 循环知识入口 |
-| 12 | 9 步循环关联课，含「循环输送 ≠ 生成」的关系判读 | 同课程交互规则 |
-| 13 | 14 条科学关系，按 5 种关系类型筛选 | 类型筛选、关系卡片跳转到对应模型页 |
-| 14 | 已发现结构、三门课程进度、测验作答与解释 | 清空学习记录、继续课程、跳转结构图谱 |
-| 15 | 方法说明、19 条来源完整表、第三方版权与许可、科学免责声明、页面索引 | 打开原始来源链接、返回任意入口 |
+| 序号 | 该页能做什么 |
+|---|---|
+| 01 封面 | 第一帧即真实人体三维场景 + 一层「欢迎语文字覆盖层」（`pointer-events: none`，模型就绪后约 2.4 秒自然淡出，冷启动最迟 9 秒淡出；**没有「开始 / 跳过」按钮**）。可以立即转动模型、点选结构。 |
+| 02 人体总览 | 转动完整人体；左栏列出解剖系统目录与本图层可聚焦的真实结构；点模型上的结构，右纸条「当前选中」随之更新。 |
+| 03 神经系统 | 在人体中单独显示神经系统并聚焦（镜头由查看器按真实网格包围盒计算）；左栏列出该系统的真实结构并可点选聚焦；尺度轴标记为「系统」。 |
+| 04 循环系统 | 同神经系统页：单独显示循环系统、聚焦、结构点选；右栏给出循环系统简介与结构知识。 |
+| 05 淋巴系统 | 同神经系统页：单独显示淋巴系统、聚焦、结构点选。 |
+| 06 大脑 | 镜头聚焦大脑（`cerebrum`），其余结构隐藏便于观察；右栏给出脑的结构知识、健康关联，以及向下进入神经元的入口。 |
+| 07 心脏 | 镜头聚焦心脏，右栏说明四腔 / 瓣膜 / 循环功能，并澄清「心脏 — 白细胞」是循环输送关系（心脏不生成白细胞）。 |
+| 08 脾脏 | 镜头聚焦脾脏，右栏说明淋巴器官的免疫角色与血液过滤功能，以及向下进入白细胞的入口。 |
+| 09 神经元 | 细胞层程序化原创几何：胞体 / 树突 / 轴突 / 髓鞘，4 个可点热标与左栏部件列表，点部件右栏知识联动。 |
+| 10 白细胞 | 细胞层程序化原创几何：细胞膜 / 细胞质 / 细胞核，3 个可点热标，并说明白细胞主要生成于骨髓。 |
+| 11 关于 · 数据与方法 | 作品定位、结构化数据规模、完整来源表（19 条，含访问日期与实测可达性）、第三方许可与版权、科学免责声明、11 页页面索引表。可打开原始来源链接、回到任意入口。 |
+
+> 「3D 热标」为细胞页在默认机位下投影到画面上的 DOM 标注数量，由 Playwright 实测计数得出。
+> 人体 / 系统 / 器官页的结构直接在模型上点选，不使用独立热标层。
 
 ## 3. 页面计数说明（供评委核对）
 
-- 上表 15 行即 BodyDay 对外声明的 **15 个页面**，封面与封底计入其中。
-- 其中 `04` 与 `05/08/11`、`06/09`、`07/10/12` 使用路由参数生成多个**可独立直达的实例**
-  （例如 `#/systems/cardiovascular-system`、`#/organ/heart`、`#/cell/leukocyte`、`#/lesson/immune`）。
-  它们共享同一版式但内容与交互各自独立，因此按 1 页计入 —— 若按路由实例计，
-  可访问页面总数为 **15 个版式 / 24 个可直达实例**，仍未超过 20 页上限的约束方式见下。
-- 关于「20 页以内」的判定：赛事表述针对 H5 的**页面数**。BodyDay 按版式计为 15 页；
-  若评委按可直达 URL 计数，则作品提供了 24 个入口，其中 9 个是同一版式下不同器官/细胞/课程的内容实例
-  （而非 9 个新页面）。本说明与 `#/about` 页内的页面索引表均可供逐条核对。
+- 上表 11 行即 BodyDay 对外声明的 **11 个页面**，封面与封底计入其中。
+- 其中 03 / 04 / 05（系统）、06 / 07 / 08（器官）、09 / 10（细胞）是各自独立的直达路径，
+  但**共用同一个工作台组件与同一套左右纸条**，差别只在镜头位置与两侧面板内容。
+  它们不是「换一套外壳的新页面」，也不各自重新加载三维场景。
+- 关于「20 页以内」：BodyDay 声明为 **11 页**，满足「不少于 10 页」且远低于 20 页上限。
+- 页面索引同时内置于封底 `/about` 表格中，可按行逐条核对。
 
 ## 4. 截图复现方式
 
@@ -70,8 +69,7 @@
 cd body-day
 npm run dev            # 启动 http://localhost:5173
 # 另开终端，在工程外的任意目录：
-node capture-all.mjs   # 依据上表逐页 goto + 等待 + screenshot
+node scripts/capture-screenshots.mjs   # 依据上表逐页 goto + 等待 + screenshot
 ```
 
-三维页面需要等待 atlas 从官方 CDN 加载（脚本中为 45–50 秒），
-非三维页面等待 2.5 秒，细胞页面等待 9 秒（程序化几何本地生成，无网络依赖）。
+三维页面需要等待 atlas 从官方 CDN 加载；细胞页面为程序化几何本地生成，无网络依赖。
