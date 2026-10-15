@@ -8,6 +8,7 @@ import {
   clampProgress,
   computeBodyAxis,
   computeExplosionOffsets,
+  explosionMaxRadius,
   resolveGroupMembers,
   type ExplosionGroup,
 } from './fullBody';
@@ -66,6 +67,10 @@ export interface FullBodyProbe {
   centers: Record<string, [number, number, number]>;
   /** 同上，包围盒半径 */
   radii: Record<string, number>;
+  /** 镜头真实位置与到焦点距离：用于判断取景是否随 progress 变化 */
+  camera: { position: [number, number, number]; distance: number };
+  /** 半径最大的若干可位移组：用于判断是否存在「超大组」导致整体飞出 */
+  largestGroups: { id: string; radius: number; offsetMagnitude: number; meshCount: number }[];
 }
 
 export interface FullBodyStageProps {
@@ -99,9 +104,13 @@ interface ModelIndex {
   baseBoxes: Map<THREE.Mesh, THREE.Box3>;
   /** 每组当前的位移向量（由 applyExplosion 写入） */
   currentOffsets: Map<string, [number, number, number]>;
+  /** 每组包含的网格数 */
+  groupMeshCount: Map<string, number>;
   groups: ExplosionGroup[];
   bounds: THREE.Box3;
   axis: [number, number, number];
+  /** 单组位移半径上限（由整具人体包围盒推出） */
+  maxRadius: number;
   /** 高亮材质替换时记录的原始材质，用于还原 */
   baseMaterials: Map<THREE.Mesh, THREE.Material | THREE.Material[]>;
   highlighted: THREE.Mesh[];
@@ -168,6 +177,8 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
   let nodeCount = 0;
 
   model.traverse((object) => {
+    // 根节点不算「模型节点」：atlas 的 nodeCount 指的是模型自身的 984 个节点
+    if (object === model) return;
     nodeCount += 1;
     const id = anatomyIdOf(object);
     if (id) ids.add(id);
@@ -181,6 +192,7 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
   const parents = buildParentMap(model);
 
   const meshGroup = new Map<THREE.Mesh, string>();
+  const groupMeshCount = new Map<string, number>();
   const basePositions = new Map<THREE.Mesh, THREE.Vector3>();
   const baseBoxes = new Map<THREE.Mesh, THREE.Box3>();
   const bounds = new THREE.Box3();
@@ -194,6 +206,7 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     const own = anatomyIdOf(mesh) ?? `__mesh_${meshes.indexOf(mesh)}`;
     const groupId = movableGroupOf(own, parents, hasGeometry);
     meshGroup.set(mesh, groupId);
+    groupMeshCount.set(groupId, (groupMeshCount.get(groupId) ?? 0) + 1);
     const existing = grouped.get(groupId);
     if (existing) existing.union(box);
     else grouped.set(groupId, box.clone());
@@ -232,12 +245,14 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     meshes,
     parents,
     meshGroup,
+    groupMeshCount,
     basePositions,
     baseBoxes,
     currentOffsets: new Map(),
     groups,
     bounds,
     axis: computeBodyAxis(bounds),
+    maxRadius: explosionMaxRadius(bounds),
     baseMaterials: new Map(),
     highlighted: [],
     stats: {
@@ -262,7 +277,7 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
 
 /** 按 progress 重算并覆盖每个 mesh 的位移（不累加）。 */
 function applyExplosion(index: ModelIndex, progress: number): void {
-  const offsets = computeExplosionOffsets(index.groups, index.axis, progress);
+  const offsets = computeExplosionOffsets(index.groups, index.axis, progress, index.maxRadius);
   const current = new Map<string, [number, number, number]>();
   for (const item of offsets) current.set(item.id, item.offset);
   index.currentOffsets = current;
@@ -331,6 +346,8 @@ function applyIsolation(index: ModelIndex, isolateId: string | null): void {
 type OrbitLike = { target: THREE.Vector3; update: () => void };
 
 interface ModelRigProps {
+  /** 舞台挂载时刻：就绪耗时必须从「文件还没开始下载」算起，而不是从模型解析完算起 */
+  startedAt: number;
   progress: number;
   selectedStructureId: string | null;
   isolate: boolean;
@@ -343,6 +360,7 @@ interface ModelRigProps {
 }
 
 function ModelRig({
+  startedAt,
   progress,
   selectedStructureId,
   isolate,
@@ -357,7 +375,6 @@ function ModelRig({
   // 克隆一份再改：GLTFLoader 的缓存场景是共享的，直接改会污染其它消费者
   const index = useMemo(() => buildModelIndex(gltf.scene.clone(true)), [gltf.scene]);
 
-  const startedAt = useMemo(() => performance.now(), []);
   const camera = useThree((state) => state.camera) as THREE.PerspectiveCamera;
   const controls = useThree((state) => state.controls) as OrbitLike | null;
 
@@ -462,7 +479,7 @@ function ModelRig({
     onReadyRef.current?.({ ...index.stats, loadMs: Math.round(performance.now() - startedAt) });
   });
 
-  /* 真实读数上报：位移后各探查结构组的包围盒中心与半径 */
+  /* 真实读数上报：位移后各探查结构组的包围盒中心/半径 + 镜头位置 + 最大组 */
   useEffect(() => {
     const centers: Record<string, [number, number, number]> = {};
     const radii: Record<string, number> = {};
@@ -473,8 +490,30 @@ function ModelRig({
       centers[id] = [center.x, center.y, center.z];
       radii[id] = box.getSize(new THREE.Vector3()).length() / 2;
     }
-    onProbeRef.current?.({ progress: clampProgress(progress), centers, radii });
-  }, [index, progress]);
+    const focusPoint = controls?.target ?? new THREE.Vector3();
+    const largestGroups = [...index.groups]
+      .sort((a, b) => b.radius - a.radius)
+      .slice(0, 8)
+      .map((group) => {
+        const offset = index.currentOffsets.get(group.id) ?? ZERO_OFFSET;
+        return {
+          id: group.id,
+          radius: group.radius,
+          offsetMagnitude: Math.hypot(offset[0], offset[1], offset[2]),
+          meshCount: index.groupMeshCount.get(group.id) ?? 0,
+        };
+      });
+    onProbeRef.current?.({
+      progress: clampProgress(progress),
+      centers,
+      radii,
+      camera: {
+        position: [camera.position.x, camera.position.y, camera.position.z],
+        distance: camera.position.distanceTo(focusPoint),
+      },
+      largestGroups,
+    });
+  }, [index, progress, controls, camera]);
 
   const handlePointerOver = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
@@ -521,6 +560,9 @@ export function FullBodyStage({
   ariaLabel,
   canvasKey,
 }: FullBodyStageProps) {
+  /** 舞台挂载时刻：作为「从零开始加载」的计时起点，包含 30 MB GLB 的下载与解析 */
+  const [startedAt] = useState(() => performance.now());
+
   const focusRequest = useMemo(
     () => (selectedStructureId ? { id: selectedStructureId, nonce: focusNonce } : null),
     [selectedStructureId, focusNonce],
@@ -552,6 +594,7 @@ export function FullBodyStage({
 
         <Suspense fallback={null}>
           <ModelRig
+            startedAt={startedAt}
             progress={progress}
             selectedStructureId={selectedStructureId}
             isolate={isolate}

@@ -6,6 +6,7 @@ import {
   clampProgress,
   computeBodyAxis,
   computeExplosionOffsets,
+  explosionMaxRadius,
   resolveGroupMembers,
   type ExplosionGroup,
 } from './fullBody';
@@ -154,5 +155,20 @@ describe('拆解位移', () => {
     expect(computeExplosionOffsets(groups, axis, -3)).toEqual(
       computeExplosionOffsets(groups, axis, 0),
     );
+  });
+
+  it('整体外壳这类超大组的位移被半径上限压住，不会把人体推出画面', () => {
+    const body = new THREE.Box3(new THREE.Vector3(-0.9, -0.9, -0.9), new THREE.Vector3(0.9, 1.8, 0.9));
+    const cap = explosionMaxRadius(body);
+    expect(cap).toBeGreaterThan(0);
+    // 半径远大于整具人体的组（真实数据里 body-shell 半径 ≈ 人体半径）
+    const giant: ExplosionGroup[] = [{ id: 'body-shell', center: [0, 0.9, 0], radius: 5 }];
+    const [offset] = computeExplosionOffsets(giant, axis, 1, cap);
+    const length = Math.hypot(offset.offset[0], offset.offset[1], offset.offset[2]);
+    expect(length).toBeGreaterThan(0);
+    expect(length).toBeLessThanOrEqual(cap * EXPLOSION_SPREAD + 1e-9);
+    // 未给上限时不受约束（保持向后兼容）
+    const [uncapped] = computeExplosionOffsets(giant, axis, 1);
+    expect(Math.hypot(...uncapped.offset)).toBeGreaterThan(length);
   });
 });

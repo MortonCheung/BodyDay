@@ -38,6 +38,14 @@ export const EXPLOSION_SPREAD = 1.15;
 export const EXPLOSION_UP_BIAS = 0.32;
 /** 包围球半径下限，避免极小组件的位移距离退化为 0。 */
 export const EXPLOSION_MIN_RADIUS = 0.06;
+/**
+ * 单组位移距离的半径上限系数（相对整具人体的包围球半径）。
+ *
+ * 这是实机验证发现的问题的护栏：`body-shell`（236 个网格）这类**整体外壳**的包围球
+ * 半径几乎等于整具人体，若不设上限，它会带着位移量把人体推出画面（实测 1.09 单位，
+ * 相机距离只有 2.96）。设上限后「越大越不动」，外层轮廓得以保留。
+ */
+export const EXPLOSION_MAX_RADIUS_RATIO = 0.25;
 
 /** 拆解进度钳制到 [0, 1]；非法输入（NaN / Infinity）按 0 处理，不抛错。 */
 export function clampProgress(value: number): number {
@@ -102,6 +110,11 @@ export function resolveGroupMembers(
   return members;
 }
 
+/** 由整具人体包围盒推出「单组位移半径」的上限。 */
+export function explosionMaxRadius(bounds: THREE.Box3): number {
+  return (bounds.getSize(new THREE.Vector3()).length() / 2) * EXPLOSION_MAX_RADIUS_RATIO;
+}
+
 /** 一个可位移的结构组：真实几何中心 + 自身尺寸（用于定标位移距离）。 */
 export interface ExplosionGroup {
   id: string;
@@ -127,6 +140,7 @@ export function computeExplosionOffsets(
   groups: readonly ExplosionGroup[],
   axis: [number, number, number],
   progress: number,
+  maxRadius: number = Number.POSITIVE_INFINITY,
 ): ExplosionOffset[] {
   const t = clampProgress(progress);
   // smoothstep：两端变化率趋近 0，组装态与拆解态都更安静
@@ -136,7 +150,7 @@ export function computeExplosionOffsets(
     if (radial.lengthSq() < 1e-10) radial.set(0, 0, 1); // 恰好落在中轴上的组，给一个确定的兜底方向
     radial.normalize();
     const direction = radial.add(new THREE.Vector3(0, EXPLOSION_UP_BIAS, 0)).normalize();
-    const scale = Math.max(group.radius, EXPLOSION_MIN_RADIUS);
+    const scale = Math.max(EXPLOSION_MIN_RADIUS, Math.min(group.radius, maxRadius));
     const distance = eased * scale * EXPLOSION_SPREAD;
     // 组装态的位移就是精确的零向量（避免出现 -0 这种无意义的符号）
     if (distance === 0) return { id: group.id, offset: [0, 0, 0] };
