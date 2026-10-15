@@ -56,7 +56,7 @@ export const TISSUE_NOTES: RegionNote[] = [
 ];
 
 export const ATLAS_ATTRIBUTION_TEXT =
-  '人体与器官解剖模型：Z-Anatomy（CC BY-SA 4.0），经 Vanatome 导出为 Web 版本。';
+  '人体解剖模型：Z-Anatomy（CC BY-SA 4.0），来自 Vanatome Human Atlas 1.4.0 的整具人体资源（curated-full-body），运行时由本作品自建的三维舞台加载。';
 
 export function getRegionNotes(organEntityId: string | null | undefined): RegionNote[] {
   if (!organEntityId) return [];

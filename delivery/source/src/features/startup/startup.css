@@ -1,0 +1,120 @@
+/* ============ 启动封面 ============
+   一张完整的暖白纸：只有名称、一句副标题、一条细线和真实加载状态。
+   没有渐变、没有玻璃拟态、没有粒子；视觉克制来自间距与字号层级。 */
+
+.bd-cover {
+  position: fixed;
+  inset: 0;
+  z-index: var(--bd-z-modal);
+  display: flex;
+  flex-direction: column;
+  background: var(--bd-paper);
+  padding: clamp(26px, 5.4vw, 76px);
+  transition: opacity 620ms var(--bd-ease), visibility 620ms var(--bd-ease);
+}
+
+.bd-cover[data-state="entering"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.bd-cover__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 44ch;
+  margin: auto 0;
+  padding-block: var(--bd-space-6);
+}
+
+.bd-cover__wordmark {
+  font-size: clamp(2.6rem, 6.4vw, 4.6rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--bd-ink);
+}
+
+.bd-cover__sub {
+  color: var(--bd-ink-muted);
+  font-size: clamp(0.9rem, 1.4vw, 1.06rem);
+  letter-spacing: 0.06em;
+}
+
+.bd-cover__rule {
+  width: 100%;
+  height: 1px;
+  margin: var(--bd-space-5) 0 var(--bd-space-4);
+  background: var(--bd-rule);
+  border: 0;
+}
+
+.bd-cover__status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bd-space-3);
+  align-items: flex-start;
+  min-height: 132px;
+}
+
+.bd-cover__label {
+  font-family: var(--bd-font-mono);
+  font-size: var(--bd-fs-micro);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bd-ink-soft);
+}
+
+.bd-cover__track {
+  width: min(320px, 100%);
+  height: 1px;
+  background: var(--bd-rule);
+  overflow: hidden;
+}
+
+.bd-cover__bar {
+  height: 100%;
+  background: var(--bd-ink);
+  transform-origin: left center;
+  transition: transform 180ms linear;
+}
+
+.bd-cover__enter {
+  min-height: 52px;
+  padding: 0 var(--bd-space-7);
+  border: 1px solid var(--bd-ink);
+  border-radius: var(--bd-radius);
+  background: var(--bd-ink);
+  color: var(--bd-paper);
+  font-size: var(--bd-fs-small);
+  letter-spacing: 0.1em;
+  transition: background var(--bd-dur-fast) var(--bd-ease), color var(--bd-dur-fast) var(--bd-ease);
+}
+.bd-cover__enter:hover:not(:disabled) { background: transparent; color: var(--bd-ink); }
+.bd-cover__enter:disabled { opacity: 0.6; }
+
+.bd-cover__note {
+  max-width: 40ch;
+  color: var(--bd-ink-faint);
+  font-size: var(--bd-fs-meta);
+  line-height: 1.7;
+}
+
+.bd-cover__foot {
+  color: var(--bd-ink-ghost);
+  font-family: var(--bd-font-mono);
+  font-size: var(--bd-fs-micro);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 720px) {
+  .bd-cover__status { min-height: 152px; }
+  .bd-cover__enter { width: 100%; }
+  .bd-cover__foot { font-size: 0.625rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-cover { transition: none; }
+  .bd-cover__bar { transition: none; }
+}

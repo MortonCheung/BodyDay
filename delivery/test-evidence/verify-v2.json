@@ -1,0 +1,667 @@
+{
+  "base": "http://localhost:5175",
+  "startedAt": "2026-10-15T07:48:03.240Z",
+  "steps": [
+    {
+      "step": "封面（加载中）",
+      "detail": {
+        "coverPresent": true,
+        "inert": true
+      }
+    },
+    {
+      "step": "封面（就绪）",
+      "detail": {
+        "inert": true,
+        "loadMs": 608
+      }
+    },
+    {
+      "step": "进入后（完整人体）",
+      "detail": {
+        "coverGone": true,
+        "inert": false,
+        "visibleMeshes": 984,
+        "shellOpacity": 1,
+        "cameraDistance": 3.0515145147561338,
+        "headerNav": [
+          "关于"
+        ]
+      }
+    },
+    {
+      "step": "装配态点大脑屏幕位置 命中",
+      "detail": {
+        "at": {
+          "x": 503.7343805227558,
+          "y": 106.14757064688138
+        },
+        "tried": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "selected": true
+          }
+        ],
+        "paper": "当前选中体表（皮肤）体表与区域解剖这是模型里真实存在的解剖结构，BodyDay 还没有为它建立独立的科普卡片。 这里不编造内容，也不拿别的结构代替。取消选中"
+      }
+    },
+    {
+      "step": "Esc 之后",
+      "detail": {
+        "kind": "cover",
+        "path": "/",
+        "focusTargetId": null,
+        "isolate": false,
+        "explode": 0,
+        "pageEntityId": "human"
+      }
+    },
+    {
+      "step": "拆解 25%",
+      "detail": {
+        "visible": 984,
+        "shell": 0.31640625,
+        "cam": 3.051514514756133
+      }
+    },
+    {
+      "step": "拆解 50%",
+      "detail": {
+        "visible": 748,
+        "shell": 0,
+        "cam": 3.1134366265109494
+      }
+    },
+    {
+      "step": "拆解 50% 后点心脏 命中",
+      "detail": {
+        "at": {
+          "x": 573.05122711674,
+          "y": 219.05158700814712
+        },
+        "tried": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "selected": true
+          }
+        ],
+        "paper": "当前选中心脏Heart心脏是循环系统的动力泵，通过有节律的收缩把血液推向肺与全身。四个腔右心房、右心室、左心房、左心室；左右两侧由室间隔分开。瓣膜房室瓣与半月瓣保证血液单向流动，防止倒流。与白细胞的真实关系白细胞主要在骨髓生成，随血液被输送到全身；心脏提供的是循环动力，而不是生成白细胞。与健康的关系血压管理高血压是心血管疾病的重要危险因素，减少高盐饮食、保持身体活动有助于血压管理。规律运动规律的中等强度身体活动有助于心血管健康。你点到的是「Right_ventricle」，它归属心脏。取消选中"
+      }
+    },
+    {
+      "step": "拆解 100%",
+      "detail": {
+        "visible": 748,
+        "shell": 0,
+        "cam": 3.251843318612439
+      }
+    },
+    {
+      "step": "拆解 100% 后点脾脏 命中",
+      "detail": {
+        "at": {
+          "x": 657.6551805041823,
+          "y": 285.5593393352422
+        },
+        "tried": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "selected": true
+          }
+        ],
+        "paper": "当前选中脾脏Spleen脾脏位于左上腹，是最大的淋巴器官，参与血液过滤与免疫应答。位置位于左上腹，胃的后外侧，受肋骨保护。免疫角色作为淋巴器官，脾脏是免疫细胞聚集、识别与应答的重要场所之一。血液过滤脾脏过滤血液，并参与清除衰老或受损的红细胞。与健康的关系免疫功能与生活方式充足睡眠、均衡膳食与规律身体活动是支持免疫功能的基础性生活方式因素。疫苗的意义免疫接种通过训练免疫系统识别特定病原体，从而在真正接触时更快、更有效地应答。脾脏三维模型用于结构示意，未按真实比例渲染。当前结构：脾脏。取消选中"
+      }
+    },
+    {
+      "step": "复位视角之后",
+      "detail": {
+        "kind": "cover",
+        "path": "/",
+        "focusTargetId": null,
+        "isolate": false,
+        "explode": 1,
+        "pageEntityId": "human"
+      }
+    },
+    {
+      "step": "器官页 brain",
+      "detail": {
+        "view": {
+          "kind": "organ",
+          "path": "/organ/brain",
+          "focusTargetId": "cerebrum",
+          "isolate": true,
+          "explode": 0,
+          "pageEntityId": "brain"
+        },
+        "visibleMeshes": 169,
+        "paperTitle": "大脑",
+        "drillLinks": [
+          "查看神经系统",
+          "进入神经元"
+        ]
+      }
+    },
+    {
+      "step": "器官页 brain 点选 命中",
+      "detail": {
+        "at": {
+          "x": 503.734375,
+          "y": 400.0000000000013
+        },
+        "tried": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "selected": true
+          }
+        ],
+        "paper": "当前选中Superior_frontal_gyrusr神经系统 · 归属于大脑BodyDay 只为这个结构整体建立了科普卡片。这是一块真实存在的局部结构， 不为它单独编写内容，也不拿别的结构代替。取消选中"
+      }
+    },
+    {
+      "step": "器官页 heart",
+      "detail": {
+        "view": {
+          "kind": "organ",
+          "path": "/organ/heart",
+          "focusTargetId": "heart",
+          "isolate": true,
+          "explode": 0,
+          "pageEntityId": "heart"
+        },
+        "visibleMeshes": 4,
+        "paperTitle": "心脏",
+        "drillLinks": [
+          "查看循环系统",
+          "查看大脑"
+        ]
+      }
+    },
+    {
+      "step": "器官页 heart 点选 命中",
+      "detail": {
+        "at": {
+          "x": 503.734375,
+          "y": 400
+        },
+        "tried": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "selected": true
+          }
+        ],
+        "paper": "当前选中Right_ventricle循环系统 · 归属于心脏BodyDay 只为这个结构整体建立了科普卡片。这是一块真实存在的局部结构， 不为它单独编写内容，也不拿别的结构代替。取消选中"
+      }
+    },
+    {
+      "step": "器官页 spleen",
+      "detail": {
+        "view": {
+          "kind": "organ",
+          "path": "/organ/spleen",
+          "focusTargetId": "spleen",
+          "isolate": true,
+          "explode": 0,
+          "pageEntityId": "spleen"
+        },
+        "visibleMeshes": 1,
+        "paperTitle": "脾脏",
+        "drillLinks": [
+          "查看淋巴系统",
+          "查看白细胞"
+        ]
+      }
+    },
+    {
+      "step": "器官页 spleen 点选 命中",
+      "detail": {
+        "at": {
+          "x": 503.73437499999994,
+          "y": 400
+        },
+        "tried": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "selected": true
+          }
+        ],
+        "paper": "当前选中脾脏的整体淋巴系统 · 归属于脾脏BodyDay 只为这个结构整体建立了科普卡片。这是一块真实存在的局部结构， 不为它单独编写内容，也不拿别的结构代替。取消选中"
+      }
+    },
+    {
+      "step": "细胞页 neuron",
+      "detail": {
+        "scale": "细胞微米级细胞，如神经元、白细胞",
+        "paperTitle": "神经元"
+      }
+    },
+    {
+      "step": "细胞页 leukocyte",
+      "detail": {
+        "scale": "细胞微米级细胞，如神经元、白细胞",
+        "paperTitle": "白细胞"
+      }
+    },
+    {
+      "step": "大脑 → 神经元",
+      "detail": {
+        "scale": "细胞微米级细胞，如神经元、白细胞",
+        "url": "http://localhost:5175/#/cell/neuron"
+      }
+    },
+    {
+      "step": "脾脏页可深入入口",
+      "detail": [
+        "查看淋巴系统",
+        "查看白细胞"
+      ]
+    },
+    {
+      "step": "关于页",
+      "detail": {
+        "hasLicense": true,
+        "hasDisclaimer": true,
+        "pageIndexRows": 30
+      }
+    },
+    {
+      "step": "移动端",
+      "detail": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "sheet": "closed",
+        "stage": {
+          "w": 366,
+          "h": 770
+        }
+      }
+    }
+  ],
+  "readings": {
+    "coverLoading": {
+      "coverPresent": true,
+      "inert": true
+    },
+    "readyStats": {
+      "nodeCount": 984,
+      "meshCount": 984,
+      "triangleCount": 1746560,
+      "uniqueAnatomyIds": 749,
+      "groupCounts": {
+        "heart": 4,
+        "cerebrum": 169,
+        "cerebellum": 33,
+        "brainstem": 6,
+        "spleen": 1
+      },
+      "sampleAnatomyId": "abducens-nuclei-nucleus-of-abducens-nerve-left",
+      "sampleAnatomyParentId": "abducens-nuclei",
+      "sampleAnatomySystem": "nervous",
+      "sampleUserDataKeys": [
+        "name",
+        "Cross-section-X",
+        "Cross-section-X-inverse",
+        "Cross-section-Y",
+        "Cross-section-Y-inverse",
+        "Cross-section-Z",
+        "Cross-section-Z-inverse",
+        "muscle_color",
+        "comic_shader",
+        "key_color",
+        "anatomyId",
+        "anatomyParentId",
+        "sourceName",
+        "anatomySystem"
+      ],
+      "loadMs": 608
+    },
+    "coverReady": {
+      "inert": true
+    },
+    "body": {
+      "coverGone": true,
+      "inert": false,
+      "visibleMeshes": 984,
+      "shellOpacity": 1,
+      "cameraDistance": 3.0515145147561338,
+      "headerNav": [
+        "关于"
+      ]
+    },
+    "clickAssembled": {
+      "view": {
+        "kind": "cover",
+        "path": "/",
+        "focusTargetId": "body-shell",
+        "isolate": true,
+        "explode": 0,
+        "pageEntityId": "human"
+      },
+      "paper": "当前选中体表（皮肤）体表与区域解剖这是模型里真实存在的解剖结构，BodyDay 还没有为它建立独立的科普卡片。 这里不编造内容，也不拿别的结构代替。取消选中",
+      "ok": true
+    },
+    "afterEscape": {
+      "kind": "cover",
+      "path": "/",
+      "focusTargetId": null,
+      "isolate": false,
+      "explode": 0,
+      "pageEntityId": "human"
+    },
+    "clickHeartAt50": {
+      "view": {
+        "kind": "cover",
+        "path": "/",
+        "focusTargetId": "heart",
+        "isolate": true,
+        "explode": 0.5,
+        "pageEntityId": "human"
+      },
+      "paper": "当前选中心脏Heart心脏是循环系统的动力泵，通过有节律的收缩把血液推向肺与全身。四个腔右心房、右心室、左心房、左心室；左右两侧由室间隔分开。瓣膜房室瓣与半月瓣保证血液单向流动，防止倒流。与白细胞的真实关系白细胞主要在骨髓生成，随血液被输送到全身；心脏提供的是循环动力，而不是生成白细胞。与健康的关系血压管理高血压是心血管疾病的重要危险因素，减少高盐饮食、保持身体活动有助于血压管理。规律运动规律的中等强度身体活动有助于心血管健康。你点到的是「Right_ventricle」，它归属心脏。取消选中",
+      "ok": true
+    },
+    "clickSpleenAt100": {
+      "view": {
+        "kind": "cover",
+        "path": "/",
+        "focusTargetId": "spleen",
+        "isolate": true,
+        "explode": 1,
+        "pageEntityId": "human"
+      },
+      "paper": "当前选中脾脏Spleen脾脏位于左上腹，是最大的淋巴器官，参与血液过滤与免疫应答。位置位于左上腹，胃的后外侧，受肋骨保护。免疫角色作为淋巴器官，脾脏是免疫细胞聚集、识别与应答的重要场所之一。血液过滤脾脏过滤血液，并参与清除衰老或受损的红细胞。与健康的关系免疫功能与生活方式充足睡眠、均衡膳食与规律身体活动是支持免疫功能的基础性生活方式因素。疫苗的意义免疫接种通过训练免疫系统识别特定病原体，从而在真正接触时更快、更有效地应答。脾脏三维模型用于结构示意，未按真实比例渲染。当前结构：脾脏。取消选中",
+      "ok": true
+    },
+    "explode": {
+      "25": {
+        "visibleMeshes": 984,
+        "shellOpacity": 0.31640625,
+        "cameraDistance": 3.051514514756133,
+        "screen": {
+          "heart": {
+            "x": 535.6127551567017,
+            "y": 229.9145387854983
+          },
+          "cerebrum": {
+            "x": 503.7344643977918,
+            "y": 107.42605204505739
+          },
+          "cerebellum": {
+            "x": 503.7343634769133,
+            "y": 128.91853647902488
+          },
+          "brainstem": {
+            "x": 503.7345819056795,
+            "y": 131.4021543659023
+          },
+          "spleen": {
+            "x": 567.541714929797,
+            "y": 284.50160646615757
+          }
+        },
+        "largestGroups": [
+          {
+            "id": "body-shell",
+            "radius": 0.9473067829935767,
+            "offsetMagnitude": 0.042554796892289574,
+            "meshCount": 236
+          },
+          {
+            "id": "appendicular-skeleton",
+            "radius": 0.7930243561873102,
+            "offsetMagnitude": 0.09288046973882334,
+            "meshCount": 126
+          },
+          {
+            "id": "lymphoid-organs",
+            "radius": 0.6781647533908168,
+            "offsetMagnitude": 0.11804330616209024,
+            "meshCount": 53
+          },
+          {
+            "id": "skeleton",
+            "radius": 0.4172292269526734,
+            "offsetMagnitude": 0.09288046973882334,
+            "meshCount": 55
+          }
+        ]
+      },
+      "50": {
+        "visibleMeshes": 748,
+        "shellOpacity": 0,
+        "cameraDistance": 3.1134366265109494,
+        "screen": {
+          "heart": {
+            "x": 573.05122711674,
+            "y": 219.05158700814712
+          },
+          "cerebrum": {
+            "x": 490.7399892701943,
+            "y": 119.19722630230099
+          },
+          "cerebellum": {
+            "x": 490.72934219538723,
+            "y": 139.56783815109134
+          },
+          "brainstem": {
+            "x": 490.62579775678165,
+            "y": 142.11373385317674
+          },
+          "spleen": {
+            "x": 620.1279774961496,
+            "y": 282.04645928644163
+          }
+        },
+        "largestGroups": [
+          {
+            "id": "body-shell",
+            "radius": 0.9473067829935767,
+            "offsetMagnitude": 0.13617535005532663,
+            "meshCount": 236
+          },
+          {
+            "id": "appendicular-skeleton",
+            "radius": 0.7930243561873102,
+            "offsetMagnitude": 0.29721750316423473,
+            "meshCount": 126
+          },
+          {
+            "id": "lymphoid-organs",
+            "radius": 0.6781647533908168,
+            "offsetMagnitude": 0.3777385797186888,
+            "meshCount": 53
+          },
+          {
+            "id": "skeleton",
+            "radius": 0.4172292269526734,
+            "offsetMagnitude": 0.2972175031642347,
+            "meshCount": 55
+          }
+        ]
+      },
+      "100": {
+        "visibleMeshes": 748,
+        "shellOpacity": 0,
+        "cameraDistance": 3.251843318612439,
+        "screen": {
+          "heart": {
+            "x": 591.690666859165,
+            "y": 211.50822778879154
+          },
+          "cerebrum": {
+            "x": 449.3559243158845,
+            "y": 140.68240803867482
+          },
+          "cerebellum": {
+            "x": 448.9032726190624,
+            "y": 159.70960845411705
+          },
+          "brainstem": {
+            "x": 448.42048496039575,
+            "y": 162.38041900335708
+          },
+          "spleen": {
+            "x": 657.6551805041823,
+            "y": 285.5593393352422
+          }
+        },
+        "largestGroups": [
+          {
+            "id": "body-shell",
+            "radius": 0.9473067829935767,
+            "offsetMagnitude": 0.27235070011065327,
+            "meshCount": 236
+          },
+          {
+            "id": "appendicular-skeleton",
+            "radius": 0.7930243561873102,
+            "offsetMagnitude": 0.5944350063284695,
+            "meshCount": 126
+          },
+          {
+            "id": "lymphoid-organs",
+            "radius": 0.6781647533908168,
+            "offsetMagnitude": 0.7554771594373776,
+            "meshCount": 53
+          },
+          {
+            "id": "skeleton",
+            "radius": 0.4172292269526734,
+            "offsetMagnitude": 0.5944350063284694,
+            "meshCount": 55
+          }
+        ]
+      }
+    },
+    "afterReset": {
+      "kind": "cover",
+      "path": "/",
+      "focusTargetId": null,
+      "isolate": false,
+      "explode": 1,
+      "pageEntityId": "human"
+    },
+    "organ_brain": {
+      "view": {
+        "kind": "organ",
+        "path": "/organ/brain",
+        "focusTargetId": "cerebrum",
+        "isolate": true,
+        "explode": 0,
+        "pageEntityId": "brain"
+      },
+      "visibleMeshes": 169,
+      "paperTitle": "大脑",
+      "drillLinks": [
+        "查看神经系统",
+        "进入神经元"
+      ]
+    },
+    "organ_brain_click": {
+      "view": {
+        "kind": "organ",
+        "path": "/organ/brain",
+        "focusTargetId": "cerebrum",
+        "isolate": true,
+        "explode": 0,
+        "pageEntityId": "brain"
+      },
+      "paper": "当前选中Superior_frontal_gyrusr神经系统 · 归属于大脑BodyDay 只为这个结构整体建立了科普卡片。这是一块真实存在的局部结构， 不为它单独编写内容，也不拿别的结构代替。取消选中",
+      "ok": true
+    },
+    "organ_heart": {
+      "view": {
+        "kind": "organ",
+        "path": "/organ/heart",
+        "focusTargetId": "heart",
+        "isolate": true,
+        "explode": 0,
+        "pageEntityId": "heart"
+      },
+      "visibleMeshes": 4,
+      "paperTitle": "心脏",
+      "drillLinks": [
+        "查看循环系统",
+        "查看大脑"
+      ]
+    },
+    "organ_heart_click": {
+      "view": {
+        "kind": "organ",
+        "path": "/organ/heart",
+        "focusTargetId": "heart",
+        "isolate": true,
+        "explode": 0,
+        "pageEntityId": "heart"
+      },
+      "paper": "当前选中Right_ventricle循环系统 · 归属于心脏BodyDay 只为这个结构整体建立了科普卡片。这是一块真实存在的局部结构， 不为它单独编写内容，也不拿别的结构代替。取消选中",
+      "ok": true
+    },
+    "organ_spleen": {
+      "view": {
+        "kind": "organ",
+        "path": "/organ/spleen",
+        "focusTargetId": "spleen",
+        "isolate": true,
+        "explode": 0,
+        "pageEntityId": "spleen"
+      },
+      "visibleMeshes": 1,
+      "paperTitle": "脾脏",
+      "drillLinks": [
+        "查看淋巴系统",
+        "查看白细胞"
+      ]
+    },
+    "organ_spleen_click": {
+      "view": {
+        "kind": "organ",
+        "path": "/organ/spleen",
+        "focusTargetId": "spleen",
+        "isolate": true,
+        "explode": 0,
+        "pageEntityId": "spleen"
+      },
+      "paper": "当前选中脾脏的整体淋巴系统 · 归属于脾脏BodyDay 只为这个结构整体建立了科普卡片。这是一块真实存在的局部结构， 不为它单独编写内容，也不拿别的结构代替。取消选中",
+      "ok": true
+    },
+    "cell_neuron": {
+      "scale": "细胞微米级细胞，如神经元、白细胞",
+      "paperTitle": "神经元"
+    },
+    "cell_leukocyte": {
+      "scale": "细胞微米级细胞，如神经元、白细胞",
+      "paperTitle": "白细胞"
+    },
+    "brainToNeuron": {
+      "scale": "细胞微米级细胞，如神经元、白细胞",
+      "url": "http://localhost:5175/#/cell/neuron"
+    },
+    "spleenLinks": [
+      "查看淋巴系统",
+      "查看白细胞"
+    ],
+    "about": {
+      "hasLicense": true,
+      "hasDisclaimer": true,
+      "pageIndexRows": 30
+    },
+    "mobile": {
+      "viewport": 390,
+      "scrollWidth": 390,
+      "sheet": "closed",
+      "stage": {
+        "w": 366,
+        "h": 770
+      }
+    },
+    "mobileSheetOpen": "open"
+  },
+  "finishedAt": "2026-10-15T07:49:02.347Z"
+}

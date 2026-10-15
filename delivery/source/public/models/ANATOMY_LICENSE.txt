@@ -1,0 +1,39 @@
+人体解剖模型 · 许可与署名（ANATOMY MODEL LICENSE）
+=========================================================
+
+文件
+----
+z-anatomy-1.4.0-full-body.glb        （整具人体，31.8 MB）
+public/models/organs/                （如后续补充的独立器官资源，同许可）
+
+来源
+----
+Z-Anatomy — The libre 3D atlas of anatomy
+主要贡献者：Gauthier Kervyn、Marcin Zielinski
+项目主页：https://www.z-anatomy.com/
+本文件取自 Vanatome Human Atlas 1.4.0 的整具人体资源（profile: curated-full-body）：
+https://atlas.vanatome.vixotic.in/models/z-anatomy-1.4.0-full-body.glb
+下载日期：2026-10-15
+
+许可
+----
+Creative Commons Attribution-ShareAlike 4.0 International（CC BY-SA 4.0）
+许可全文：https://creativecommons.org/licenses/by-sa/4.0/legalcode.zh-hans
+
+署名与修改说明（CC BY-SA 4.0 第 3 条要求）
+------------------------------------------
+1. 署名：本作品在使用该模型时署名为
+   "Z-Anatomy — The libre 3D atlas of anatomy（CC BY-SA 4.0）"，
+   并保留本文件与作品内「关于 · 数据与方法」页的完整来源说明。
+2. 修改：模型**文件本身未作修改**，原样随作品发布。作品在渲染阶段做了以下适配，
+   已按许可要求如实标明：
+   - 按解剖系统对结构分组，并在拆解时对结构组做径向位移；
+   - 体表外壳随拆解进度渐进隐去；
+   - 系统级可见性过滤（单系统查看）与选中结构的高亮、隔离、取景；
+   - 体表 / 骨骼 / 肌肉系统统一到暖调配色，内脏保留资产自带配色。
+3. 相同方式共享：上述适配若被再分发，须继续以 CC BY-SA 4.0 提供。
+
+其它第三方资源
+--------------
+同目录下的 Kenney Furniture Kit (2.0) 模型为 CC0，许可见 License.txt，
+仅由已归档的旧版演示代码（src/legacy/dorm）引用，不在当前产品路径中使用。

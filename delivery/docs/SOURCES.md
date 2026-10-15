@@ -21,7 +21,7 @@
 | S14 | MedlinePlus（美国国家医学图书馆 / NIH） | Blood | — | 200 | https://medlineplus.gov/blood.html |
 | S15 | 国家卫生健康委员会 | 中国公民健康素养——基本知识与技能（2024年版） | — | **412（站点 WAF 防护）** | https://www.nhc.gov.cn/xcs/c100123/202405/73a4927142f34152abed875634a3c13b.shtml |
 | S16 | Human Reference Atlas（HuBMAP） | 3D Reference Library | CC BY 4.0 | 200 | https://humanatlas.io/3d-reference-library |
-| S17 | Vanatome / Z-Anatomy | Vanatome Human Atlas 1.4.0（含 ASSET-LICENSE.md） | 代码 MIT / 资产 CC BY-SA 4.0 | 200 | https://github.com/vixotic/Vanatome |
+| S17 | Vanatome / Z-Anatomy | Vanatome Human Atlas 1.4.0（含 ASSET-LICENSE.md；V2 仅使用其整具人体**资产**，不使用其查看器代码） | 代码 MIT / 资产 CC BY-SA 4.0 | 200 | https://github.com/vixotic/Vanatome |
 | S18 | 世界卫生组织（WHO） | Immunization（问答） | — | 200 | https://www.who.int/news-room/questions-and-answers/item/immunization |
 | S19 | OpenStax（莱斯大学） | Anatomy and Physiology 2e · Ch. 1 Introduction（含器官系统总览） | CC BY 4.0 | 200 | https://openstax.org/books/anatomy-and-physiology-2e/pages/1-introduction |
 

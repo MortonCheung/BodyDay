@@ -9,7 +9,14 @@ import { SYSTEM_MAP } from '../domain';
  * 造成「地图先归位、再重新聚焦」式的画面跳动，也会重复加载模型。
  * 因此统一解析路径 → 同一棵组件树只更新 props。
  */
-export type ViewKind = 'cover' | 'body' | 'system' | 'organ' | 'cell' | 'about' | 'notfound';
+export type ViewKind =
+  | 'cover'
+  | 'body'
+  | 'system'
+  | 'organ'
+  | 'cell'
+  | 'about'
+  | 'notfound';
 
 export interface ResolvedView {
   kind: ViewKind;

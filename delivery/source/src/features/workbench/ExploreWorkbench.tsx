@@ -1,24 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AtlasStage, CellStage } from '../../three/lazyStages';
-import { useAtlasSelection } from '../../three/atlasSelection';
+import { CellStage, FullBodyStage } from '../../three/lazyStages';
 import { useStageState } from '../../three/useStageState';
 import { StageBoundary } from '../../components/StageBoundary';
-import { useAppMode } from '../../app/AppProviders';
+import { useStartupActions } from '../../app/AppProviders';
 import { routeForEntity, ROUTES } from '../../app/routes';
 import type { ResolvedView } from '../../app/resolveView';
-import { ATLAS_ATTRIBUTION_TEXT } from '../../services/organAssets';
 import {
-  BODY_CONTEXT_BUNDLES,
-  ATLAS_STRUCTURE_IDS,
-  ENTITY_BUNDLE,
   ENTITY_STRUCTURE,
-  type AtlasBundleId,
+  FOREGROUND_STRUCTURE_IDS,
+  describeStructure,
+  type StructureHit,
+  type StructureInfo,
 } from '../../services/atlas';
 import { markDiscovered } from '../../services/progress';
 import {
   ENTITY_MAP,
-  LESSONS,
+  RELATION_TYPE_LABEL,
   SCALE_MAP,
   SYSTEMS,
   getChildren,
@@ -27,27 +25,34 @@ import {
   relationsFrom,
   relationsOf,
   type BodyEntity,
+  type KnowledgeRelation,
   type Scale,
   type SystemBrief,
 } from '../../domain';
-import { StructureRail, type RailStructure } from './StructureRail';
-import { KnowledgePaper, type AscendLink } from './KnowledgePaper';
-import { GuidePanel } from './GuidePanel';
-import { WelcomeOverlay } from './WelcomeOverlay';
+import type { FullBodyProbe, FullBodyStats } from '../../three/FullBodyStage';
+import { KnowledgePaper, type AscendLink, type DrillLink } from './KnowledgePaper';
 import './workbench.css';
 
 /**
- * BodyDay 空间工作台。
+ * BodyDay 空间工作台（V2）。
  *
- * 全站只有这一个「探索界面」：中央唯一的三维人体，左栏是结构与图层，
- * 右栏是随选中联动的知识纸条。人体 → 系统 → 器官 → 细胞之间的差别，
- * 只体现为**镜头位置与两侧面板内容的变化**，而不是换一套页面外壳。
+ * 全站只有这一个探索界面：中央是一具**真实的人体模型**，
+ * 人体 → 系统 → 器官 → 细胞之间的差别只体现为**镜头与右纸条内容的变化**，
+ * 而不是换一套页面外壳。三件事因此被固定下来：
  *
- * 这一点由两个设计决定保证：
- * 1. 路由不拆分组件树 —— 所有探索页面共用这一个组件实例，三维场景在整段探索中
- *    始终挂载，不会重新加载、也不会「先归位、再重新聚焦」；
- * 2. 选中状态是唯一的状态源 —— 模型点选、左栏点选、跨尺度跳转都写回同一份选中。
+ * 1. 结构选择完全由三维模型承担 —— 点选、聚焦、隔离、逐层拆解都在模型上发生；
+ * 2. 路由不拆分组件树 —— 所有探索页面共用同一个组件实例，场景不会被重新挂载；
+ * 3. 选中是一段可回退的层级栈 —— 「返回上一级」回到上一次点选，而不是清空一切。
  */
+
+const FOREGROUND_SET = new Set(FOREGROUND_STRUCTURE_IDS);
+
+/** 一次点选在层级栈里的记录 */
+interface BodySelection {
+  /** 高亮 / 隔离 / 聚焦的作用目标 */
+  targetId: string;
+  info: StructureInfo;
+}
 
 interface WorkbenchModel {
   scale: Scale;
@@ -57,21 +62,16 @@ interface WorkbenchModel {
   system?: SystemBrief;
   isCell: boolean;
   cellId: 'neuron' | 'leukocyte' | null;
-  bundles: AtlasBundleId[];
-  layers: string[] | null;
-  /**
-   * 本页的「入场取景结构」：进入页面时选中并聚焦它。
-   *
-   * 为什么不自己算机位：atlas 元数据的 `position` 不在渲染坐标系里，
-   * 用它推机位会把相机放进网格内部。这里的做法是交给查看器——
-   * 查看器会遍历真实网格算出包围盒，因此取景总是对的。
-   */
+  /** 系统页只显示该解剖系统；其余页面为 null（显示整具人体） */
+  onlySystemId: string | null;
+  /** 进入本页时聚焦并高亮的结构（器官页为整具器官；其余为 null，取景整具人体） */
   entryStructureId: string | null;
-  isolationMode: 'selected' | null;
-  /** 页面标题（用于屏幕阅读器与页面识别；界面上不重复显示） */
+  /** 进入本页时是否隔离显示（器官页为 true） */
+  entryIsolate: boolean;
   pageTitle: string;
   subjectLabel: string;
   hudNote: string;
+  emptyHint: string;
 }
 
 /** 未登记为实体的系统（如骨骼系统）用真实系统简介生成一张可读卡片，不编造内容 */
@@ -94,46 +94,39 @@ function buildModel(view: ResolvedView): WorkbenchModel {
     case 'system': {
       const system = getSystem(view.systemId);
       const entity = getEntity(system?.id) ?? (system ? systemAsEntity(system) : undefined);
-      const bundles = system?.bundle
-        ? ([...BODY_CONTEXT_BUNDLES, system.bundle as AtlasBundleId] as AtlasBundleId[])
-        : BODY_CONTEXT_BUNDLES;
       return {
         scale: 'system',
         entity,
         system,
         isCell: false,
         cellId: null,
-        bundles,
-        layers: system ? [system.atlasId] : null,
-        // 系统页的入场取景结构在运行时从已加载清单里取（见 entryStructureId 派生）
+        onlySystemId: system?.atlasId ?? null,
         entryStructureId: null,
-        isolationMode: null,
+        entryIsolate: false,
         pageTitle: system?.nameZh ?? '人体系统',
         subjectLabel: '当前系统',
         hudNote: system
-          ? `${system.nameZh}已在人体中单独显示；左栏列出该系统的真实结构，点选即可聚焦。`
+          ? `${system.nameZh}已在人体中单独显示。点选其中任一结构即可聚焦。`
           : '该系统的结构已在人体中单独显示。',
+        emptyHint: '点选这个系统里的任一结构，纸条会换成它的知识。',
       };
     }
     case 'organ': {
       const entity = getEntity(view.organId);
       const system = getSystem(entity?.parentId);
-      const bundle = view.organId ? ENTITY_BUNDLE[view.organId] : undefined;
       return {
         scale: 'organ',
         entity,
         system,
         isCell: false,
         cellId: null,
-        bundles: bundle
-          ? ([...BODY_CONTEXT_BUNDLES, bundle] as AtlasBundleId[])
-          : BODY_CONTEXT_BUNDLES,
-        layers: system ? [system.atlasId] : null,
+        onlySystemId: null,
         entryStructureId: view.organId ? ENTITY_STRUCTURE[view.organId] ?? null : null,
-        isolationMode: 'selected',
+        entryIsolate: true,
         pageTitle: entity?.nameZh ?? '器官',
         subjectLabel: '当前器官',
-        hudNote: `镜头已聚焦${entity?.nameZh ?? '该器官'}；其余结构暂时隐藏，便于观察它本身。`,
+        hudNote: `镜头已聚焦${entity?.nameZh ?? '该器官'}，其它结构暂时隐去，便于单独观察。`,
+        emptyHint: `点击这个器官上的任意位置，可以查看它内部更具体的结构。`,
       };
     }
     case 'cell': {
@@ -144,13 +137,13 @@ function buildModel(view: ResolvedView): WorkbenchModel {
         system: undefined,
         isCell: true,
         cellId: view.cellId ?? null,
-        bundles: [],
-        layers: null,
+        onlySystemId: null,
         entryStructureId: null,
-        isolationMode: null,
+        entryIsolate: false,
         pageTitle: entity?.nameZh ?? '细胞',
         subjectLabel: '当前细胞',
-        hudNote: '细胞模型为程序化科学示意；点击模型热标或部件，右栏随之更新。',
+        hudNote: '细胞模型为程序化科学示意；点选模型上的部件，纸条随之更新。',
+        emptyHint: '点选细胞模型上的任一部件，查看它在细胞里的作用。',
       };
     }
     default: {
@@ -161,274 +154,229 @@ function buildModel(view: ResolvedView): WorkbenchModel {
         system: undefined,
         isCell: false,
         cellId: null,
-        bundles: BODY_CONTEXT_BUNDLES,
-        layers: null,
-        // 全身取景：body-shell 是唯一覆盖整具人体的真实结构（236 个网格）
-        entryStructureId: ATLAS_STRUCTURE_IDS.bodyShell,
-        isolationMode: null,
+        onlySystemId: null,
+        // 全身取景交回舞台：基于真实包围盒自适应，不写死机位
+        entryStructureId: null,
+        entryIsolate: false,
         pageTitle: view.kind === 'cover' ? '身体的一天 · 首页' : '人体总览',
         subjectLabel: '人体总览',
-        hudNote: '转动这具人体，或直接点选其中任一结构开始探索。',
+        hudNote: '转动这具人体，点选任一结构开始探索；拖动「拆解」可以把它一层层打开。',
+        emptyHint:
+          '点选人体上的任一结构，这里会换成它的结构知识、与健康的关系，以及可以继续深入的方向。',
       };
     }
   }
 }
 
-/** 当前页面上下文所对应的引导教学脚本 */
-function lessonForModel(model: WorkbenchModel) {
-  if (model.entity?.id === 'brain') return LESSONS.find((lesson) => lesson.id === 'neural');
-  if (model.entity?.id === 'spleen') return LESSONS.find((lesson) => lesson.id === 'immune');
-  if (model.entity?.id === 'heart') return LESSONS.find((lesson) => lesson.id === 'circulation');
-  return LESSONS[0];
-}
-
-/**
- * 给一个真实结构取「可以给用户看」的名字。
- *
- * - 能映射到 BodyDay 实体 → 用实体的中文名；
- * - atlas 里名字本身就是内部 ID（全小写、与 ID 相同，如 `body-shell`）→ 不展示；
- * - 其余是真实的解剖英文名（如 `Cerebellum`），属于科学术语，可以展示。
- *
- * 这条规则是为了满足「界面不出现工程术语与字段名」的约束，
- * 同时又**不编造中文译名** —— 没有登记过中文名的结构宁可显示它的真实英文名。
- */
-function readableStructureName(item: RailStructure): string | null {
-  if (item.entityId) return ENTITY_MAP[item.entityId]?.nameZh ?? null;
-  const name = item.name.trim();
-  if (!name || name === item.id) return null;
-  if (!/[A-Z ]/.test(name)) return null;
-  return name;
-}
+/** 关系语义 → 是否可以当作「继续深入」的入口（不编造、不使用兜底关系） */
+const DRILLABLE_TYPES = new Set(['extends_to', 'part_of', 'functional']);
 
 export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   const navigate = useNavigate();
-  const { mode, setMode } = useAppMode();
+  const { reportProgress, reportReady } = useStartupActions();
 
-  // 视图只依赖路径：同一路径重渲染时保持引用稳定，避免下游 memo 失效
   const model = useMemo(() => buildModel(view), [view.path]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const stage = useStageState(null);
-  const { requestFocus, requestReset, selectEntity, markUserRotate } = stage;
+  const { requestReset, selectEntity } = stage;
 
-  const [loaded, setLoaded] = useState<RailStructure[]>([]);
-  const [structuresReady, setStructuresReady] = useState(false);
+  /* ---------- 人体层状态 ---------- */
+  const [history, setHistory] = useState<BodySelection[]>([]);
+  const [explode, setExplode] = useState(0);
+  const [focusNonce, setFocusNonce] = useState(0);
+  const [resetNonce, setResetNonce] = useState(0);
+  const [hovered, setHovered] = useState<StructureInfo | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  const handleStructuresReady = useCallback((list: RailStructure[]) => {
-    setLoaded(list);
-    setStructuresReady(true);
+  const current = history.length > 0 ? history[history.length - 1] : null;
+  const canGoBack = history.length > 1;
+
+  /* ---------- 真实加载：进度与就绪都来自舞台自己 ---------- */
+  const devState = useRef<Record<string, unknown>>({});
+  const exposeDevState = useCallback(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as Record<string, unknown>).__BODYDAY_STAGE__ = devState.current;
   }, []);
 
-  /* ---------- 左栏结构清单 ---------- */
-  const activeLayer = model.layers && model.layers.length === 1 ? model.layers[0] : null;
-
-  const structures = useMemo<RailStructure[]>(() => {
-    if (model.isCell || model.scale === 'body') return [];
-    const scoped = loaded
-      .filter((item) => item.kind !== 'system')
-      .filter((item) => !activeLayer || item.layer === activeLayer);
-
-    /**
-     * 同一器官下的细分结构会折叠成该器官的一项（例如脑区之下的两百多个细分结构 → 「大脑」）。
-     * 这是有意的克制：左栏是一份可读的中文索引，而不是一份几百条英文解剖术语的清单；
-     * 想要更细的结构，直接在模型上点选即可，右栏会给出现真实结构名。
-     */
-    const seen = new Set<string>();
-    const labelled: RailStructure[] = [];
-    for (const item of scoped) {
-      const label = readableStructureName(item);
-      if (!label || seen.has(label)) continue;
-      seen.add(label);
-      labelled.push({ ...item, name: label });
-    }
-
-    const byName = (a: RailStructure, b: RailStructure) =>
-      a.name.localeCompare(b.name, 'zh-Hans-CN');
-    const preferred = labelled.filter((item) => item.kind === 'organ').sort(byName);
-    const rest = labelled.filter((item) => item.kind !== 'organ').sort(byName);
-    return [...preferred, ...rest].slice(0, 60);
-  }, [loaded, model.isCell, model.scale, activeLayer]);
-
-  /** 当前图层里真实存在多少条结构（未按展示口径折叠） */
-  const layerScannedCount = useMemo(
-    () =>
-      activeLayer
-        ? loaded.filter((item) => item.kind !== 'system' && item.layer === activeLayer).length
-        : 0,
-    [loaded, activeLayer],
+  const handleReady = useCallback(
+    (stats: FullBodyStats) => {
+      devState.current.stats = stats;
+      exposeDevState();
+      reportReady();
+    },
+    [exposeDevState, reportReady],
   );
 
-  /** 图层刚切换、结构尚未加载完成时，必须让用户看到「还在加载」而不是「没有结构」 */
-  const loadingStructures =
-    !structuresReady || (Boolean(activeLayer) && layerScannedCount === 0);
+  const handleProbe = useCallback(
+    (probe: FullBodyProbe) => {
+      devState.current.probe = probe;
+      exposeDevState();
+    },
+    [exposeDevState],
+  );
 
-  /**
-   * 入场取景结构：进入本页时选中并聚焦它，镜头便落在正确的结构上。
-   * 系统页的根结构（`kind === 'system'`）只存在于模型清单里，因此从已加载数据中取。
-   */
-  const entryStructureId = useMemo(() => {
-    if (model.isCell) return null;
-    if (model.entryStructureId) return model.entryStructureId;
-    if (model.scale === 'system' && activeLayer) {
-      return loaded.find((item) => item.kind === 'system' && item.layer === activeLayer)?.id ?? null;
-    }
-    return null;
-  }, [model.isCell, model.entryStructureId, model.scale, activeLayer, loaded]);
-
-  const { structureId, setStructureId, info, setInfo } = useAtlasSelection(entryStructureId);
-
-  /* ---------- 路由变化：更新选中与镜头，但不重挂场景 ---------- */
+  /* ---------- 路由变化：清空层级栈、回到装配态，并重新取景 ---------- */
   const lastPath = useRef('');
-  const appliedEntryRef = useRef('');
   useEffect(() => {
-    if (model.isCell) {
-      if (lastPath.current === view.path) return;
-      lastPath.current = view.path;
-      appliedEntryRef.current = `${view.path}|`;
-      setStructureId(null);
-      selectEntity(null);
-      requestReset();
-      if (model.entity) markDiscovered(model.entity.id);
-      return;
-    }
-    if (!entryStructureId) return;
-    const key = `${view.path}|${entryStructureId}`;
-    if (appliedEntryRef.current === key) return;
-    appliedEntryRef.current = key;
+    if (lastPath.current === view.path) return;
     lastPath.current = view.path;
-    setStructureId(entryStructureId);
-    selectEntity(null);
-    // 取景交给查看器按真实网格包围盒完成，因此整段探索中镜头都是对的
-    requestFocus(entryStructureId);
-    if (model.entity) markDiscovered(model.entity.id);
-  }, [view.path, entryStructureId]); // eslint-disable-line react-hooks/exhaustive-deps
+    setHistory([]);
+    setExplode(0);
+    setHovered(null);
+    setFocusNonce((n) => n + 1);
+    setResetNonce((n) => n + 1);
+    if (!model.isCell && model.entity) markDiscovered(model.entity.id);
+  }, [view.path]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ---------- 选中派生 ---------- */
-  /** 选中的正是本页入场结构 → 对用户而言等于「没有选中任何子结构」 */
-  const isEntrySelection =
-    !model.isCell && Boolean(structureId) && structureId === entryStructureId;
-
-  const selectedEntity = useMemo<BodyEntity | undefined>(() => {
-    if (isEntrySelection) return undefined;
-    if (model.isCell) {
-      return stage.selectedEntityId ? ENTITY_MAP[stage.selectedEntityId] : undefined;
-    }
-    return info?.entityId ? ENTITY_MAP[info.entityId] : undefined;
-  }, [isEntrySelection, model.isCell, stage.selectedEntityId, info]);
+  /* 取景目标：当前选中优先，其次本页入场结构 */
+  const focusTargetId = current?.targetId ?? model.entryStructureId;
+  const isolate = current ? FOREGROUND_SET.has(current.targetId) : model.entryIsolate;
 
   useEffect(() => {
-    if (selectedEntity) markDiscovered(selectedEntity.id);
-  }, [selectedEntity]);
-
-  const rawSelection =
-    !model.isCell && !isEntrySelection && info && !info.entityId ? info : null;
-
-  /** 面向上游展示时再清洗一次：绝不把内部 ID 当作结构名显示给用户 */
-  const displayRawSelection = useMemo(() => {
-    if (!rawSelection) return null;
-    const name = rawSelection.name.trim();
-    const readable = Boolean(name) && name !== rawSelection.structureId && /[A-Z ]/.test(name);
-    return { ...rawSelection, name: readable ? name : '未命名结构' };
-  }, [rawSelection]);
-
-  const hasSelection = model.isCell
-    ? Boolean(stage.selectedEntityId)
-    : Boolean(structureId) && !isEntrySelection;
-  const selectionIsDistinct = Boolean(selectedEntity && selectedEntity.id !== model.entity?.id);
-
-  /** 真实结构名：让「点到了同一个器官的另一个区域」也立刻有反馈 */
-  const currentStructureCaption = useMemo(() => {
-    if (!info || model.isCell || isEntrySelection) return null;
-    const owner = info.entityId ? ENTITY_MAP[info.entityId] : undefined;
-    if (owner && owner.id === model.entity?.id) {
-      return info.name === model.entity?.nameZh ? null : `${info.name}（归属${owner.nameZh}）`;
-    }
-    return null;
-  }, [info, model.isCell, isEntrySelection, model.entity]);
+    devState.current.view = {
+      kind: view.kind,
+      path: view.path,
+      focusTargetId,
+      isolate,
+      explode,
+      pageEntityId: model.entity?.id ?? null,
+    };
+    exposeDevState();
+  }, [
+    exposeDevState,
+    view.kind,
+    view.path,
+    focusTargetId,
+    isolate,
+    explode,
+    model.entity,
+    current?.info.name,
+  ]);
 
   /* ---------- 交互 ---------- */
-  const focusStructure = useCallback(
-    (id: string) => {
-      setStructureId(id);
-      requestFocus(id);
-    },
-    [setStructureId, requestFocus],
-  );
+  const handleSelect = useCallback((hit: StructureHit | null) => {
+    if (!hit) {
+      setHistory([]); // 点模型空白处 = 回到本页默认取景
+      return;
+    }
+    const info = describeStructure(hit);
+    setHistory((prev) => {
+      const top = prev[prev.length - 1];
+      // 同一目标不重复入栈，只更新它内部更细的那一层
+      if (top && top.targetId === hit.targetId) {
+        return [...prev.slice(0, -1), { targetId: hit.targetId, info }];
+      }
+      return [...prev, { targetId: hit.targetId, info }];
+    });
+    if (info.entityId) markDiscovered(info.entityId);
+  }, []);
 
-  const focusPart = useCallback(
-    (id: string) => {
-      requestFocus(id);
-    },
-    [requestFocus],
-  );
+  const handleHover = useCallback((hit: StructureHit | null) => {
+    setHovered(hit ? describeStructure(hit) : null);
+  }, []);
 
-  /** 回到本页默认取景：清空选中，并重新聚焦本页的入场结构 */
+  const goBackOne = useCallback(() => setHistory((prev) => prev.slice(0, -1)), []);
+
   const resetView = useCallback(() => {
     if (model.isCell) {
       selectEntity(null);
       requestReset();
       return;
     }
-    if (entryStructureId) {
-      setStructureId(entryStructureId);
-      selectEntity(null);
-      requestFocus(entryStructureId);
-      return;
-    }
-    selectEntity(null);
-    requestReset();
-  }, [model.isCell, entryStructureId, setStructureId, selectEntity, requestFocus, requestReset]);
-
-  const handleAtlasSelect = useCallback(
-    (id: string | null) => {
-      // 点模型空白处 = 取消选中并回到本页取景
-      if (id === null) {
-        if (hasSelection) resetView();
-        return;
-      }
-      setStructureId(id);
-    },
-    [hasSelection, resetView, setStructureId],
-  );
+    setHistory([]);
+    setHovered(null);
+    setFocusNonce((n) => n + 1);
+    setResetNonce((n) => n + 1);
+  }, [model.isCell, selectEntity, requestReset]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
+      const hasSelection = model.isCell ? Boolean(stage.selectedEntityId) : Boolean(current);
       if (!hasSelection) return;
       event.preventDefault();
       resetView();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [resetView, hasSelection]);
+  }, [resetView, model.isCell, stage.selectedEntityId, current]);
 
-  const cellParts = useMemo(
-    () => (model.isCell && model.entity ? getChildren(model.entity.id) : null),
-    [model.isCell, model.entity],
+  /* ---------- 选中派生 ---------- */
+  const selectionEntityId = model.isCell ? null : current?.info.entityId ?? null;
+
+  const selectedEntity = useMemo<BodyEntity | undefined>(() => {
+    if (model.isCell) {
+      return stage.selectedEntityId ? ENTITY_MAP[stage.selectedEntityId] : undefined;
+    }
+    if (!selectionEntityId) return undefined;
+    // 选中的就是本页主体时，不重复展示一遍同样的卡片
+    return selectionEntityId === model.entity?.id ? undefined : ENTITY_MAP[selectionEntityId];
+  }, [model.isCell, model.entity, selectionEntityId, stage.selectedEntityId]);
+
+  /** 在大脑页点到某个脑区这类情况：有归属，但内容仍然是本页主体的卡片 */
+  const localSelection = useMemo(
+    () =>
+      selectionEntityId && selectionEntityId === model.entity?.id && current
+        ? {
+            name: current.info.name ?? model.entity?.nameZh ?? '本页主体',
+            partName: current.info.partName,
+            system: current.info.system,
+          }
+        : null,
+    [selectionEntityId, model.entity, current],
   );
 
-  /* ---------- 右栏内容 ---------- */
-  const relationSubjectId = selectionIsDistinct ? selectedEntity?.id : model.entity?.id;
+  const subjectEntityId = selectedEntity?.id ?? model.entity?.id;
 
-  const relations = useMemo(() => {
-    if (!relationSubjectId) return [];
-    return relationsOf(relationSubjectId).slice(0, 8);
-  }, [relationSubjectId]);
+  const relations = useMemo<KnowledgeRelation[]>(
+    () => (subjectEntityId ? relationsOf(subjectEntityId).slice(0, 6) : []),
+    [subjectEntityId],
+  );
 
-  const downTargets = useMemo<BodyEntity[]>(() => {
-    const sourceId = model.entity?.id;
-    if (!sourceId) return [];
+  /** 继续深入：只走真实登记的关系，并且目标页面必须真实存在 */
+  const drill = useMemo<DrillLink[]>(() => {
+    const out: DrillLink[] = [];
     const seen = new Set<string>();
-    const result: BodyEntity[] = [];
-    for (const relation of relationsFrom(sourceId)) {
-      const target = ENTITY_MAP[relation.toId];
-      if (!target || !target.proceduralId) continue;
-      if (relation.relationType !== 'extends_to' && target.kind !== 'cell') continue;
-      if (seen.has(target.id)) continue;
-      seen.add(target.id);
-      result.push(target);
+
+    /**
+     * 选中了某个已登记器官时，先给出「进入它的器官页」。
+     *
+     * 这不是一条科学关系，而是一次**页面级入口**：在人体总览上点到心脏之后，
+     * 用户需要一条明确的路径进入「心脏」这一页（聚焦、隔离、专题知识）。
+     * 没有它，器官页就只能靠手输网址到达。
+     */
+    if (selectionEntityId && ENTITY_STRUCTURE[selectionEntityId]) {
+      const to = ROUTES.organ(selectionEntityId);
+      if (to !== view.path) {
+        seen.add(to);
+        out.push({
+          to,
+          label: `进入${ENTITY_MAP[selectionEntityId]?.nameZh ?? '该器官'}（单独观察）`,
+          note: '镜头聚焦这个器官，并把其它结构暂时隐去。',
+        });
+      }
     }
-    return result;
-  }, [model.entity]);
+
+    if (subjectEntityId && !model.isCell) {
+      for (const relation of relationsFrom(subjectEntityId)) {
+        if (!DRILLABLE_TYPES.has(relation.relationType)) continue;
+        const target = ENTITY_MAP[relation.toId];
+        if (!target) continue;
+        if (target.kind === 'cell' && !target.proceduralId) continue;
+        const to = routeForEntity(target.id);
+        if (!to || to === view.path || seen.has(to)) continue;
+        seen.add(to);
+        out.push({
+          to,
+          label:
+            relation.relationType === 'extends_to'
+              ? `进入${target.nameZh}`
+              : `查看${target.nameZh}`,
+          note: `${RELATION_TYPE_LABEL[relation.relationType]}：${relation.description}`,
+        });
+      }
+    }
+    return out;
+  }, [selectionEntityId, subjectEntityId, model.isCell, view.path]);
 
   const ascend = useMemo<AscendLink | null>(() => {
     if (!model.entity?.parentId) return null;
@@ -443,22 +391,34 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
     };
   }, [model.entity, view.path]);
 
+  const quickLinks = useMemo(
+    () => [
+      { label: '人体', to: ROUTES.body, active: model.scale === 'body' },
+      ...SYSTEMS.filter((system) => system.open && system.id !== 'regional-anatomy').map(
+        (system) => ({
+          label: system.nameZh,
+          to: ROUTES.system(system.id),
+          active: model.system?.id === system.id,
+        }),
+      ),
+    ],
+    [model.scale, model.system],
+  );
+
   const navigateScale = useCallback(
     (scale: Scale) => {
       if (scale === model.scale) return;
-      const parent = model.entity?.parentId ? ENTITY_MAP[model.entity.parentId] : undefined;
       if (scale === 'body') {
         navigate(ROUTES.body);
         return;
       }
       if (scale === 'system') {
-        const systemId =
-          model.system?.id ?? (parent?.kind === 'system' ? parent.id : 'nervous-system');
+        const systemId = model.system?.id ?? 'nervous-system';
         navigate(ROUTES.system(systemId));
         return;
       }
       if (scale === 'organ') {
-        const organId = parent?.kind === 'organ' ? parent.id : 'brain';
+        const organId = MODEL_ORGAN_FALLBACK(model.entity);
         navigate(ROUTES.organ(organId));
         return;
       }
@@ -467,91 +427,17 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
     [model.scale, model.system, model.entity, navigate],
   );
 
-  /* ---------- 引导教学模式：同一条纸条上的步骤引导 ---------- */
-  const lesson = useMemo(() => lessonForModel(model), [model]);
-  const learn = mode === 'learn' && Boolean(lesson);
-
-  /**
-   * 步骤号是**派生值**：脚本或模式一变，就自动回到第一步，
-   * 而不是靠 effect 里再 setState 去同步——那样会多触发一轮渲染。
-   */
-  const guideKey = `${lesson?.id ?? ''}:${mode}`;
-  const [guideNav, setGuideNav] = useState<{ key: string; step: number }>({ key: '', step: 0 });
-  const guideStep = guideNav.key === guideKey ? guideNav.step : 0;
-  const goToGuideStep = useCallback(
-    (next: number) => {
-      const total = lesson?.steps.length ?? 1;
-      setGuideNav({ key: guideKey, step: Math.max(0, Math.min(total - 1, next)) });
-    },
-    [guideKey, lesson],
-  );
-
-  const navigatedForRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!learn || !lesson) return;
-    const step = lesson.steps[guideStep];
-    const targetId = step?.targetEntityId;
-    if (!targetId) return;
-    const target = ENTITY_MAP[targetId];
-    if (!target) return;
-
-    const targetPath = routeForEntity(targetId);
-    if (targetPath && targetPath !== view.path) {
-      navigatedForRef.current = targetPath;
-      navigate(targetPath);
-      return;
-    }
-    // 刚因引导跳转到本页：取景交给「路由变化」那支 effect，避免两条指令打架
-    if (navigatedForRef.current === targetPath) {
-      navigatedForRef.current = null;
-      return;
-    }
-
-    if (target.kind === 'organelle') {
-      requestFocus(targetId);
-    } else if (target.kind === 'organ') {
-      setStructureId(target.atlasStructureId ?? null);
-      requestReset();
-    } else {
-      selectEntity(null);
-      requestReset();
-    }
-  }, [learn, lesson, guideStep, view.path]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const guide =
-    learn && lesson ? (
-      <GuidePanel
-        lesson={lesson}
-        stepIndex={guideStep}
-        onPrev={() => goToGuideStep(guideStep - 1)}
-        onNext={() => goToGuideStep(guideStep + 1)}
-        onExit={() => setMode('explore')}
-      />
-    ) : null;
-
-  const railSystems = useMemo(
-    () => SYSTEMS.filter((system) => system.id !== 'regional-anatomy'),
-    [],
+  const cellParts = useMemo(
+    () => (model.isCell && model.entity ? getChildren(model.entity.id) : null),
+    [model.isCell, model.entity],
   );
 
   return (
-    <div className="bd-workbench">
+    <div className="bd-workbench" data-paper={sheetOpen ? 'open' : 'closed'}>
       <h1 className="bd-sr-only">{model.pageTitle}</h1>
-      <StructureRail
-        systems={railSystems}
-        activeSystemId={model.system?.id ?? null}
-        structures={structures}
-        selectedStructureId={structureId}
-        onFocusStructure={focusStructure}
-        cellParts={cellParts}
-        selectedPartId={stage.selectedEntityId}
-        onFocusPart={focusPart}
-        loadingStructures={loadingStructures}
-      />
 
       <div className="bd-wb-column">
-        <div className="bd-wb-stage" data-stage={model.isCell ? 'cell' : 'atlas'}>
+        <div className="bd-wb-stage" data-stage={model.isCell ? 'cell' : 'body'}>
           <StageBoundary label={`${model.entity?.nameZh ?? '人体'}三维舞台`}>
             {model.isCell && model.cellId ? (
               <CellStage
@@ -560,17 +446,18 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
                 ariaLabel={`${model.entity?.nameZh ?? '细胞'}三维模型`}
               />
             ) : (
-              <AtlasStage
-                bundles={model.bundles}
-                selectedStructureId={structureId}
-                onSelectStructure={handleAtlasSelect}
-                onStructureInfo={setInfo}
-                onStructuresReady={handleStructuresReady}
-                focusNonce={stage.focusNonce}
-                resetNonce={stage.resetNonce}
-                onInteractionStart={markUserRotate}
-                isolationMode={model.isolationMode}
-                visibleLayers={model.layers ?? undefined}
+              <FullBodyStage
+                progress={explode}
+                selectedStructureId={focusTargetId}
+                onSelectStructure={handleSelect}
+                onHoverStructure={handleHover}
+                focusNonce={focusNonce}
+                resetNonce={resetNonce}
+                isolate={isolate}
+                onlySystemId={model.onlySystemId}
+                onReady={handleReady}
+                onProbe={handleProbe}
+                onProgress={reportProgress}
                 ariaLabel={`${model.entity?.nameZh ?? '人体'}三维模型`}
               />
             )}
@@ -578,24 +465,60 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
 
           <div className="bd-wb-hud">
             <span className="bd-label">
-              尺度 ·
-              {' '}
-              {SCALE_MAP[model.scale]?.labelZh ?? model.scale}
+              尺度 · {SCALE_MAP[model.scale]?.labelZh ?? model.scale}
             </span>
             <span className="bd-caption">{model.hudNote}</span>
-          </div>
-
-          <div className="bd-wb-hud-bottom">
-            <span className="bd-caption">拖动旋转 · 滚轮缩放 · 点击结构选中 · Esc 取消</span>
+            {hovered && !model.isCell ? (
+              <span className="bd-meta">
+                指针指向：{hovered.name ?? '未命名结构'}
+                {hovered.system ? ` · ${hovered.system}` : ''}
+              </span>
+            ) : null}
           </div>
 
           <div className="bd-wb-stage__actions">
+            {canGoBack ? (
+              <button type="button" className="bd-button bd-button--sm" onClick={goBackOne}>
+                返回上一级
+              </button>
+            ) : null}
             <button type="button" className="bd-button bd-button--sm" onClick={resetView}>
-              {hasSelection ? '取消选中 · 复位视角' : '复位视角'}
+              {current ? '取消选中' : '复位视角'}
             </button>
           </div>
 
-          {view.kind === 'cover' ? <WelcomeOverlay ready={structuresReady} /> : null}
+          <div className="bd-wb-stage__bottom">
+            {!model.isCell ? (
+              <div className="bd-wb-explode">
+                <span className="bd-label">拆解</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Math.round(explode * 100)}
+                  aria-label="拆解进度"
+                  data-testid="explode-slider"
+                  onChange={(event) => setExplode(Number(event.target.value) / 100)}
+                />
+                <span className="bd-caption">{Math.round(explode * 100)}%</span>
+              </div>
+            ) : (
+              <span className="bd-caption">{cellParts?.length ?? 0} 个可点选部件</span>
+            )}
+
+            <span className="bd-caption bd-wb-stage__hint bd-desktop-only">
+              拖动旋转 · 滚轮缩放 · 点击结构选中 · Esc 取消
+            </span>
+
+            <button
+              type="button"
+              className="bd-button bd-button--sm bd-mobile-only"
+              onClick={() => setSheetOpen((open) => !open)}
+            >
+              {sheetOpen ? '收起知识' : '查看知识'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -603,16 +526,29 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
         scale={model.scale}
         onNavigateScale={navigateScale}
         entity={model.entity}
-        selectedEntity={selectionIsDistinct ? selectedEntity : undefined}
-        rawSelection={displayRawSelection}
-        currentStructureCaption={currentStructureCaption}
+        selection={model.isCell ? null : current?.info ?? null}
+        selectedEntity={selectedEntity}
+        localSelection={localSelection}
         relations={relations}
-        downTargets={downTargets}
+        drill={drill}
         ascend={ascend}
-        attribution={ATLAS_ATTRIBUTION_TEXT}
+        quickLinks={quickLinks}
         subjectLabel={model.subjectLabel}
-        guide={guide}
+        emptyHint={model.emptyHint}
+        onClearSelection={resetView}
+        canGoBack={canGoBack}
+        onBack={goBackOne}
+        sheetOpen={sheetOpen}
+        onToggleSheet={() => setSheetOpen((open) => !open)}
       />
     </div>
   );
+}
+
+/** 从当前实体推断「器官」层的落点（没有更具体的器官时就进大脑，与关系数据一致） */
+function MODEL_ORGAN_FALLBACK(entity: BodyEntity | undefined): string {
+  if (entity?.kind === 'organ' && entity.atlasStructureId) return entity.id;
+  const parent = entity?.parentId ? ENTITY_MAP[entity.parentId] : undefined;
+  if (parent?.kind === 'organ') return parent.id;
+  return 'brain';
 }
