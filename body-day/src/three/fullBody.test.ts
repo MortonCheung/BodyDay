@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import {
+  EXPLOSION_LAYER_STEP_RATIO,
   EXPLOSION_SPREAD,
+  SHELL_FADE_END,
   buildParentMap,
+  buildStructureHit,
   clampProgress,
   computeBodyAxis,
   computeExplosionOffsets,
   explosionMaxRadius,
+  readableStructureName,
   resolveGroupMembers,
+  resolveOrganStructure,
+  shellOpacity,
   type ExplosionGroup,
 } from './fullBody';
 
@@ -170,5 +176,125 @@ describe('拆解位移', () => {
     // 未给上限时不受约束（保持向后兼容）
     const [uncapped] = computeExplosionOffsets(giant, axis, 1);
     expect(Math.hypot(...uncapped.offset)).toBeGreaterThan(length);
+  });
+});
+
+describe('体表外壳的渐进隐去', () => {
+  it('组装态完全不透明，到达阈值后彻底隐去', () => {
+    expect(shellOpacity(0)).toBe(1);
+    expect(shellOpacity(SHELL_FADE_END)).toBe(0);
+    expect(shellOpacity(1)).toBe(0);
+  });
+
+  it('在整个区间内单调不增（拖动进度条时不会突然变亮）', () => {
+    let previous = 1;
+    for (let step = 0; step <= 40; step += 1) {
+      const value = shellOpacity(step / 100);
+      expect(value).toBeLessThanOrEqual(previous + 1e-12);
+      previous = value;
+    }
+  });
+
+  it('非法输入按组装态处理', () => {
+    expect(shellOpacity(Number.NaN)).toBe(1);
+    expect(shellOpacity(-1)).toBe(1);
+  });
+});
+
+describe('按解剖系统分层位移', () => {
+  const axis: [number, number, number] = [0, 0, 0];
+  const bodyRadius = 0.95;
+
+  /** 同一位置、同一尺寸，只有解剖层不同：位移差异必须完全来自分层。 */
+  function layered(layer: number): ExplosionGroup {
+    return { id: `group-${layer}`, center: [0.3, 1, 0], radius: 0.1, layer };
+  }
+
+  it('层号越大位移越远，内层不会被外层挡住', () => {
+    // 数组顺序即 0 / 1 / 2 / 4 层，比较它们的位移长度
+    const groups = [layered(0), layered(1), layered(2), layered(4)];
+    const offsets = computeExplosionOffsets(groups, axis, 1, Number.POSITIVE_INFINITY, bodyRadius);
+    const distance = (index: number) =>
+      Math.hypot(
+        offsets[index].offset[0],
+        offsets[index].offset[1],
+        offsets[index].offset[2],
+      );
+    expect(distance(0)).toBeLessThan(distance(1));
+    expect(distance(1)).toBeLessThan(distance(2));
+    expect(distance(2)).toBeLessThan(distance(3));
+  });
+
+  it('每层额外距离恰为 人体半径 × 分层系数', () => {
+    const base: ExplosionGroup[] = [layered(0)];
+    const one: ExplosionGroup[] = [layered(1)];
+    const narrow = computeExplosionOffsets(base, axis, 1, Number.POSITIVE_INFINITY, bodyRadius)[0];
+    const wide = computeExplosionOffsets(one, axis, 1, Number.POSITIVE_INFINITY, bodyRadius)[0];
+    const delta =
+      Math.hypot(wide.offset[0], wide.offset[1], wide.offset[2]) -
+      Math.hypot(narrow.offset[0], narrow.offset[1], narrow.offset[2]);
+    expect(delta).toBeCloseTo(bodyRadius * EXPLOSION_LAYER_STEP_RATIO, 9);
+  });
+
+  it('缺省层号（未登记系统）等同于第 0 层，保持旧行为', () => {
+    const groups: ExplosionGroup[] = [{ id: 'x', center: [0.3, 1, 0], radius: 0.1 }];
+    const withoutBody = computeExplosionOffsets(groups, axis, 1);
+    const withBody = computeExplosionOffsets(groups, axis, 1, Number.POSITIVE_INFINITY, bodyRadius);
+    expect(withBody).toEqual(withoutBody);
+  });
+});
+
+describe('结构归属与可读名', () => {
+  /** 真实 GLB 的节点名形如 `<结构ID>__<英文名>`。 */
+  function named(id: string, rawName: string, parentId?: string): THREE.Mesh {
+    const object = mesh(id, parentId);
+    object.name = rawName;
+    return object;
+  }
+
+  const KNOWN = ['cerebrum', 'heart', 'spleen', 'body-shell'];
+
+  it('沿解剖父链把细分结构归并到已登记器官', () => {
+    const tree = sampleTree();
+    tree.add(named('cerebrum-frontal-lobe', 'cerebrum-frontal-lobe__Frontal lobe', 'cerebrum'));
+    const parents = buildParentMap(tree);
+    expect(resolveOrganStructure('cerebrum-frontal-lobe', parents, KNOWN)).toBe('cerebrum');
+    // 不在任何已登记器官之下时，宁可返回 null，也不做猜测
+    expect(resolveOrganStructure('heart-valve-leaflet', parents, ['spleen'])).toBeNull();
+    // 自身即已登记结构时直接命中
+    expect(resolveOrganStructure('spleen', parents, KNOWN)).toBe('spleen');
+  });
+
+  it('点选结果作用在整块结构上，同时保留真实细分结构名', () => {
+    const tree = sampleTree();
+    const lobe = named('cerebrum-frontal-lobe', 'cerebrum-frontal-lobe__Frontal lobe', 'cerebrum');
+    tree.add(lobe);
+    const hit = buildStructureHit(lobe, buildParentMap(tree), KNOWN);
+    expect(hit).not.toBeNull();
+    expect(hit?.targetId).toBe('cerebrum');
+    expect(hit?.structureId).toBe('cerebrum-frontal-lobe');
+    expect(hit?.knownStructureId).toBe('cerebrum');
+    expect(hit?.name).toBe('Frontal lobe');
+  });
+
+  it('未登记结构保留自身 ID 与真实英文名，不冒充器官', () => {
+    const femur = named('femur', 'femur__Femur');
+    const hit = buildStructureHit(femur, new Map(), KNOWN);
+    expect(hit?.targetId).toBe('femur');
+    expect(hit?.knownStructureId).toBeNull();
+    expect(hit?.name).toBe('Femur');
+  });
+
+  it('没有 anatomyId 的对象不会被当作选中结果', () => {
+    expect(buildStructureHit(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)), new Map(), KNOWN)).toBeNull();
+  });
+
+  it('全小写的内部名不当作解剖名展示，取不到名字时返回 null', () => {
+    const shell = named('body-shell', 'body-shell');
+    expect(readableStructureName(shell, 'body-shell')).toBeNull();
+    const unnamed = named('skin', 'skin');
+    expect(readableStructureName(unnamed, 'skin')).toBeNull();
+    const good = named('heart', 'heart__Heart');
+    expect(readableStructureName(good, 'heart')).toBe('Heart');
   });
 });

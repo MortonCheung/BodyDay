@@ -1,35 +1,29 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAppMode } from './AppProviders';
-import { resolveView, type ViewKind } from './resolveView';
+import { useStartupState } from './AppProviders';
+import { resolveView } from './resolveView';
 import { ROUTES } from './routes';
 import { prefersReducedMotion } from '../design/motion';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ExploreWorkbench } from '../features/workbench/ExploreWorkbench';
 import { AboutPage } from '../features/about/AboutPage';
-import { SpikeFullBodyPage } from '../features/spike/SpikeFullBodyPage';
+import { StartupCover } from '../features/startup/StartupCover';
 
 /**
  * 应用外壳（稳定宿主）。
  *
- * 与 AgriScope 的「导航栏是稳定宿主，动画期间不重跑」一致：
- * 品牌区、主导航与模式开关在路由切换时不重新挂载，只有舞台内容随路由变化。
+ * 与 AgriScope 的「导航栏是稳定宿主」一致：顶栏在路由切换时不重新挂载，
+ * 只有舞台内容随路由变化。V2 的顶栏收敛到两条信息：左侧品牌，右侧「关于」——
+ * 结构选择全部交给中间那具真实人体，不再提供页面链接栏与模式切换。
  *
- * 路由解析在这里一次性完成，且所有探索页面渲染的是**同一个工作台组件**，
- * 因此切换页面时三维场景不会被卸载重建 —— 这是「不出现先归位、再重新聚焦」的前提。
+ * 启动闸门开启时，整个外壳是 `inert` 的：封面之下三维场景照常加载与渲染，
+ * 但用户点击「进入探索」之前无法聚焦、点击或读屏任何内部组件。
  */
 
-const NAV_ITEMS: { label: string; to: string; kinds: ViewKind[] }[] = [
-  { label: '首页', to: ROUTES.cover, kinds: ['cover'] },
-  { label: '人体', to: ROUTES.body, kinds: ['body', 'system', 'organ'] },
-  { label: '细胞', to: ROUTES.cell('neuron'), kinds: ['cell'] },
-  { label: '关于', to: ROUTES.about, kinds: ['about'] },
-];
-
 export function AppShell() {
-  const { mode, setMode } = useAppMode();
   const location = useLocation();
   const navigate = useNavigate();
+  const { phase, gateActive } = useStartupState();
 
   const view = useMemo(() => resolveView(location.pathname), [location.pathname]);
 
@@ -37,7 +31,7 @@ export function AppShell() {
     if (view.kind === 'notfound') navigate(ROUTES.cover, { replace: true });
   }, [view.kind, navigate]);
 
-  /* 纸张式页面过渡：只作用于两侧纸条，不动中央舞台 */
+  /* 纸张式页面过渡：只作用于纸条，不动中央舞台 */
   const mainRef = useRef<HTMLElement>(null);
   const lastKey = useRef('');
   useEffect(() => {
@@ -59,88 +53,65 @@ export function AppShell() {
     });
   }, [view.path]);
 
-  const activeKind = view.kind;
+  const blocked = gateActive && phase !== 'exploring';
+  const showCover = blocked;
 
   return (
-    <div className="bd-shell">
-      <header className="bd-header">
-        <div className="bd-header__inner">
-          <Link className="bd-wordmark" to={ROUTES.cover} aria-label="BodyDay 首页">
-            BodyDay
-            <span className="bd-wordmark__sub">身体的一天</span>
-          </Link>
+    <>
+      <div className="bd-shell" inert={blocked} aria-hidden={blocked}>
+        <header className="bd-header">
+          <div className="bd-header__inner">
+            <Link className="bd-wordmark" to={ROUTES.cover} aria-label="BodyDay 首页">
+              BodyDay
+              <span className="bd-wordmark__sub">身体的一天</span>
+            </Link>
 
-          <span className="bd-header__spacer" />
+            <span className="bd-header__spacer" />
 
-          <nav className="bd-nav" aria-label="主导航">
-            {NAV_ITEMS.map((item) => (
+            <nav className="bd-nav" aria-label="全局">
               <Link
-                key={item.label}
                 className="bd-nav__item"
-                data-active={item.kinds.includes(activeKind)}
-                to={item.to}
+                data-active={view.kind === 'about'}
+                to={ROUTES.about}
               >
-                {item.label}
+                关于
               </Link>
-            ))}
-          </nav>
+            </nav>
+          </div>
+        </header>
 
-          <span className="bd-header__spacer" />
-
-          <nav className="bd-modeswitch" aria-label="模式切换">
-            <button
-              type="button"
-              className="bd-modeswitch__item"
-              data-active={mode === 'explore'}
-              aria-pressed={mode === 'explore'}
-              onClick={() => setMode('explore')}
-            >
-              自由探索
-            </button>
-            <button
-              type="button"
-              className="bd-modeswitch__item"
-              data-active={mode === 'learn'}
-              aria-pressed={mode === 'learn'}
-              onClick={() => setMode('learn')}
-            >
-              引导教学
-            </button>
-          </nav>
-        </div>
-      </header>
-
-      <main ref={mainRef}>
-        <ErrorBoundary
-          fallback={(error, reset) => (
-            <div className="bd-container bd-page">
-              <div className="bd-state" role="alert">
-                <p className="bd-state__title">页面渲染出错</p>
-                <p className="bd-state__detail">
-                  当前视图未能完成渲染。这不会影响其它页面，你可以重试或回到首页重新进入。
-                </p>
-                <div className="bd-row">
-                  <button type="button" className="bd-button" onClick={reset}>
-                    重试
-                  </button>
-                  <Link className="bd-button bd-button--primary" to={ROUTES.cover}>
-                    回到首页
-                  </Link>
+        <main ref={mainRef}>
+          <ErrorBoundary
+            fallback={(error, reset) => (
+              <div className="bd-container bd-page">
+                <div className="bd-state" role="alert">
+                  <p className="bd-state__title">页面渲染出错</p>
+                  <p className="bd-state__detail">
+                    当前视图未能完成渲染。这不会影响其它页面，你可以重试或回到首页重新进入。
+                  </p>
+                  <div className="bd-row">
+                    <button type="button" className="bd-button" onClick={reset}>
+                      重试
+                    </button>
+                    <Link className="bd-button bd-button--primary" to={ROUTES.body}>
+                      回到人体总览
+                    </Link>
+                  </div>
+                  <p className="bd-caption">{error.message}</p>
                 </div>
-                <p className="bd-caption">{error.message}</p>
               </div>
-            </div>
-          )}
-        >
-          {view.kind === 'spike' ? (
-            <SpikeFullBodyPage />
-          ) : view.kind === 'about' ? (
-            <AboutPage />
-          ) : view.kind === 'notfound' ? null : (
-            <ExploreWorkbench view={view} />
-          )}
-        </ErrorBoundary>
-      </main>
-    </div>
+            )}
+          >
+            {view.kind === 'about' ? (
+              <AboutPage />
+            ) : view.kind === 'notfound' ? null : (
+              <ExploreWorkbench view={view} />
+            )}
+          </ErrorBoundary>
+        </main>
+      </div>
+
+      {showCover ? <StartupCover /> : null}
+    </>
   );
 }

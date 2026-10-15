@@ -16,9 +16,7 @@ export type ViewKind =
   | 'organ'
   | 'cell'
   | 'about'
-  | 'notfound'
-  /** 临时技术验证入口：整具人体拆解舞台（V2 集成后删除） */
-  | 'spike';
+  | 'notfound';
 
 export interface ResolvedView {
   kind: ViewKind;
@@ -48,8 +46,6 @@ export function resolveView(pathname: string): ResolvedView {
   if (segments.length === 1) {
     if (segments[0] === 'body') return { kind: 'body', path: '/body' };
     if (segments[0] === 'about') return { kind: 'about', path: '/about' };
-    // 临时验证入口：不经导航暴露，只供技术取证直达
-    if (segments[0] === 'spike-full-body') return { kind: 'spike', path: '/spike-full-body' };
   }
 
   if (segments.length === 2) {

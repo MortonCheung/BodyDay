@@ -1,50 +1,26 @@
-/* ============ BodyDay 空间工作台 ============
-   中央是唯一的三维人体，左栏是结构与图层操作，右栏是随选中联动的知识纸条。
-   两栏各自独立滚动，整页不跟随滚动；切换页面时只更新镜头与两侧内容。 */
+/* ============ BodyDay 空间工作台（V2） ============
+   中央是唯一的三维人体，右侧是随选中联动的知识纸条。
+   视觉原则（对齐 Lujo Living 那种「暖白纸面 + 一个巨大主体 + 几乎没有装饰」）：
+   模型占据主要可用宽度，两栏只用细线分隔；不用渐变、玻璃拟态、发光描边与装饰性标签。 */
 
 :root {
-  --bd-wb-left: clamp(212px, 16vw, 258px);
-  --bd-wb-right: clamp(292px, 24vw, 356px);
-  --bd-wb-gap: clamp(12px, 1.5vw, 24px);
+  --bd-wb-right: clamp(296px, 24vw, 368px);
+  --bd-wb-gap: clamp(12px, 1.5vw, 26px);
   --bd-wb-gutter-x: clamp(12px, 2.2vw, 32px);
-  --bd-wb-gutter-y: clamp(12px, 2.4vh, 26px);
+  --bd-wb-gutter-y: clamp(10px, 2vh, 22px);
 }
 
 .bd-workbench {
   height: calc(100dvh - var(--bd-nav-height));
   min-height: 0;
   display: grid;
-  grid-template-columns: var(--bd-wb-left) minmax(0, 1fr) var(--bd-wb-right);
+  grid-template-columns: minmax(0, 1fr) var(--bd-wb-right);
   gap: var(--bd-wb-gap);
   padding: var(--bd-wb-gutter-y) var(--bd-wb-gutter-x);
   overflow: hidden;
 }
 
-/* 两侧纸条：纸面 + 细线，独立滚动 */
-.bd-wb-rail,
-.bd-wb-paper {
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  background: var(--bd-paper-raised);
-  border: 1px solid var(--bd-rule-soft);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--bd-rule) 40%, transparent);
-}
-.bd-wb-rail {
-  padding: var(--bd-space-5) var(--bd-space-4) var(--bd-space-8);
-  background: var(--bd-paper-sunken);
-}
-.bd-wb-paper {
-  display: flex;
-  flex-direction: column;
-  gap: var(--bd-space-6);
-  padding: var(--bd-space-5) var(--bd-space-5) var(--bd-space-8);
-}
-
-/* 中央：唯一舞台 */
+/* 中央：唯一舞台，占据主要宽度 */
 .bd-wb-column {
   position: relative;
   display: flex;
@@ -61,12 +37,12 @@
   background:
     radial-gradient(120% 90% at 50% 14%, var(--bd-paper-raised) 0%, var(--bd-paper) 56%, var(--bd-paper-sunken) 100%);
 }
-.bd-wb-stage[data-stage="atlas"] { cursor: grab; }
-.bd-wb-stage[data-stage="atlas"]:active { cursor: grabbing; }
+.bd-wb-stage[data-stage="body"] { cursor: grab; }
+.bd-wb-stage[data-stage="body"]:active { cursor: grabbing; }
 /* 降级/加载状态铺满舞台，而不是按普通块级元素排版 */
 .bd-wb-stage > .bd-state { position: absolute; inset: 0; }
 
-/* 舞台角落信息（细线标签，不用卡片） */
+/* ---- 舞台角落：细线文字，不用卡片 ---- */
 .bd-wb-hud {
   position: absolute;
   left: var(--bd-space-4);
@@ -75,16 +51,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-width: min(38ch, 60%);
-  pointer-events: none;
-}
-.bd-wb-hud-bottom {
-  position: absolute;
-  right: var(--bd-space-4);
-  bottom: var(--bd-space-3);
-  z-index: 2;
-  display: flex;
-  gap: var(--bd-space-3);
+  max-width: min(42ch, 62%);
   pointer-events: none;
 }
 .bd-wb-stage__actions {
@@ -96,84 +63,100 @@
   gap: 6px;
 }
 .bd-wb-stage__actions .bd-button {
-  background: color-mix(in srgb, var(--bd-paper) 88%, transparent);
-  backdrop-filter: blur(6px);
+  background: var(--bd-paper-raised);
+  border-color: var(--bd-rule);
+}
+.bd-wb-stage__actions .bd-button:hover { border-color: var(--bd-ink); background: var(--bd-paper-sunken); }
+
+/* ---- 舞台底栏：拆解控制 + 操作提示 ---- */
+.bd-wb-stage__bottom {
+  position: absolute;
+  left: var(--bd-space-4);
+  right: var(--bd-space-4);
+  bottom: var(--bd-space-3);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--bd-space-4);
+}
+.bd-wb-stage__hint {
+  margin-left: auto;
+  pointer-events: none;
+  color: var(--bd-ink-ghost);
 }
 
-/* 加载 / 重载：覆盖在已有画面上，不卸载场景 */
-.bd-wb-stage__loading {
-  position: absolute;
-  left: 50%;
-  bottom: var(--bd-space-5);
-  transform: translateX(-50%);
-  z-index: 4;
+/* 拆解滑块：1px 轨道 + 实心圆点，避免出现系统默认的大滑块 */
+.bd-wb-explode {
   display: flex;
   align-items: center;
   gap: var(--bd-space-3);
-  padding: 6px 12px;
-  border: 1px solid var(--bd-rule);
-  background: color-mix(in srgb, var(--bd-paper-raised) 92%, transparent);
-  backdrop-filter: blur(6px);
-  font-size: var(--bd-fs-meta);
-  color: var(--bd-ink-muted);
-  white-space: nowrap;
+  padding: 5px 12px;
+  border: 1px solid var(--bd-rule-soft);
+  background: var(--bd-paper-raised);
 }
-.bd-wb-stage__spinner {
-  width: 10px;
-  height: 10px;
-  border: 1px solid var(--bd-rule-strong);
-  border-top-color: var(--bd-ink);
+.bd-wb-explode input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: clamp(96px, 15vw, 176px);
+  height: 16px;
+  background: transparent;
+  cursor: ew-resize;
+}
+.bd-wb-explode input[type="range"]::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--bd-rule-strong);
+}
+.bd-wb-explode input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: -5px;
   border-radius: 50%;
-  animation: bd-spin 900ms linear infinite;
+  background: var(--bd-ink);
 }
-@keyframes bd-spin { to { transform: rotate(360deg); } }
+.bd-wb-explode input[type="range"]::-moz-range-track {
+  height: 1px;
+  background: var(--bd-rule-strong);
+}
+.bd-wb-explode input[type="range"]::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bd-ink);
+}
 
-/* 封面欢迎层：第一帧就已存在真实场景，这里只是一层文字 */
-.bd-welcome {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
+/* ---- 右侧知识纸条 ---- */
+.bd-wb-paper {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: var(--bd-space-4);
-  padding: clamp(20px, 4vw, 60px);
-  pointer-events: none;
-  opacity: 1;
-  transition: opacity 900ms var(--bd-ease);
+  gap: var(--bd-space-6);
+  padding: var(--bd-space-5) var(--bd-space-5) var(--bd-space-8);
+  border: 1px solid var(--bd-rule-soft);
+  background: var(--bd-paper-raised);
 }
-.bd-welcome[data-open="false"] { opacity: 0; }
-.bd-welcome__eyebrow { color: var(--bd-ink-faint); }
-.bd-welcome__title { max-width: 14ch; }
-.bd-welcome__line {
-  max-width: 30ch;
+.bd-wb-sheethead { display: flex; align-items: flex-start; gap: var(--bd-space-3); }
+.bd-wb-sheethead > .bd-wb-head { flex: 1 1 auto; }
+.bd-wb-sheetclose {
+  min-height: 32px;
+  padding: 0 var(--bd-space-3);
+  border: 1px solid var(--bd-rule);
+  background: var(--bd-paper-sunken);
   color: var(--bd-ink-soft);
-  font-size: var(--bd-fs-lead);
-  line-height: 1.7;
-}
-.bd-welcome__hint {
-  margin-top: var(--bd-space-2);
-  color: var(--bd-ink-faint);
   font-size: var(--bd-fs-meta);
-  letter-spacing: 0.04em;
 }
 
-/* ---- 纸张区块：统一的分节语言 ---- */
-.bd-wb-section { display: flex; flex-direction: column; gap: var(--bd-space-3); }
-.bd-wb-section + .bd-wb-section { border-top: 1px solid var(--bd-rule-soft); padding-top: var(--bd-space-5); }
-.bd-wb-section__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--bd-space-3);
-  flex-wrap: wrap;
-}
-
-/* ---- 右纸条头部：尺度 + 秒级时钟 ---- */
+/* ---- 纸条头部：尺度 + 秒级时钟 + 层级索引 ---- */
 .bd-wb-head {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   border-bottom: 2px solid var(--bd-ink);
   padding-bottom: var(--bd-space-3);
 }
@@ -193,7 +176,24 @@
 }
 .bd-clock__zone { color: var(--bd-ink-faint); margin-left: 6px; }
 
-/* ---- 尺度轴：低调的当前位置指示 ---- */
+/* 层级索引：一行纯文字链接，取代原来那栏常驻结构目录 */
+.bd-wb-index {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bd-space-3);
+  flex-wrap: wrap;
+}
+.bd-wb-index__item {
+  padding-bottom: 1px;
+  border-bottom: 1px solid transparent;
+  color: var(--bd-ink-muted);
+  font-size: var(--bd-fs-small);
+  transition: color var(--bd-dur-fast) var(--bd-ease), border-color var(--bd-dur-fast) var(--bd-ease);
+}
+.bd-wb-index__item:hover { color: var(--bd-ink); border-bottom-color: var(--bd-rule-strong); }
+.bd-wb-index__item[data-active="true"] { color: var(--bd-ink); border-bottom-color: var(--bd-ink); }
+
+/* ---- 尺度轴 ---- */
 .bd-scaleline { display: flex; align-items: center; gap: 0; }
 .bd-scaleline__node {
   display: flex;
@@ -216,66 +216,55 @@
 }
 .bd-scaleline__link { flex: 1 1 auto; height: 1px; background: var(--bd-rule); }
 
-/* ---- 通用小组件 ---- */
-.bd-wb-note { color: var(--bd-ink-faint); font-size: var(--bd-fs-meta); line-height: 1.6; }
-.bd-wb-empty { color: var(--bd-ink-muted); font-size: var(--bd-fs-small); line-height: 1.7; }
-.bd-wb-actions { display: flex; flex-wrap: wrap; gap: var(--bd-space-2); }
-
-/* ---- 引导教学模式：同一张纸上的步骤引导 ---- */
-.bd-guide { display: flex; flex-direction: column; gap: var(--bd-space-4); }
-.bd-guide__steps { display: flex; align-items: center; gap: 3px; }
-.bd-guide__seg { flex: 1 1 0; height: 3px; background: var(--bd-rule); position: relative; overflow: hidden; }
-.bd-guide__seg[data-done="true"]::after { content: ""; position: absolute; inset: 0; background: var(--bd-ink); }
-.bd-guide__step { display: flex; flex-direction: column; gap: var(--bd-space-3); }
-.bd-guide__meta {
+/* ---- 纸条分节语言 ---- */
+.bd-wb-section { display: flex; flex-direction: column; gap: var(--bd-space-3); }
+.bd-wb-section + .bd-wb-section { border-top: 1px solid var(--bd-rule-soft); padding-top: var(--bd-space-5); }
+.bd-wb-section__head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--bd-space-3);
   flex-wrap: wrap;
 }
-.bd-guide__body { color: var(--bd-ink-soft); font-size: var(--bd-fs-small); line-height: 1.76; }
-.bd-guide__actions { display: flex; gap: var(--bd-space-2); }
-.bd-guide__target {
-  border-left: 2px solid var(--bd-ink);
-  padding-left: var(--bd-space-3);
-  color: var(--bd-ink-soft);
-  font-size: var(--bd-fs-small);
-  line-height: 1.7;
-}
+.bd-wb-note { color: var(--bd-ink-faint); font-size: var(--bd-fs-meta); line-height: 1.6; }
+.bd-wb-empty { color: var(--bd-ink-muted); font-size: var(--bd-fs-small); line-height: 1.7; }
+.bd-wb-actions { display: flex; flex-wrap: wrap; gap: var(--bd-space-2); }
+.bd-drill { display: flex; flex-direction: column; gap: var(--bd-space-2); align-items: flex-start; }
 
-/* ---- 响应式：始终保留独立滚动的两条纸条 ---- */
+/* ---- 响应式：小屏把纸条变为可收起的底部抽屉，模型仍占满剩余视图 ---- */
 @media (max-width: 1180px) {
-  :root {
-    --bd-wb-left: 200px;
-    --bd-wb-right: 286px;
-  }
+  :root { --bd-wb-right: 288px; }
 }
-@media (max-width: 1000px) {
-  .bd-workbench {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: 44dvh minmax(0, 1fr);
-  }
-  .bd-wb-column { grid-column: 1 / -1; grid-row: 1; }
-  .bd-wb-rail { grid-column: 1; grid-row: 2; }
-  .bd-wb-paper { grid-column: 2; grid-row: 2; }
-  .bd-welcome__title { max-width: 20ch; }
-}
-@media (max-width: 720px) {
+@media (max-width: 900px) {
+  :root { --bd-wb-gutter-y: 10px; }
   .bd-workbench {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 38dvh minmax(0, 0.85fr) minmax(0, 1fr);
-    gap: 10px;
-    padding: 10px 10px 14px;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
   }
-  .bd-wb-column { grid-column: 1; grid-row: 1; }
-  .bd-wb-rail { grid-column: 1; grid-row: 2; padding: var(--bd-space-4) var(--bd-space-3) var(--bd-space-6); }
-  .bd-wb-paper { grid-column: 1; grid-row: 3; padding: var(--bd-space-4) var(--bd-space-3) var(--bd-space-6); }
-  .bd-wb-hud { max-width: 70%; }
-  .bd-welcome { padding: 20px; }
-  .bd-welcome__hint { display: none; }
+  .bd-wb-paper {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--bd-z-float);
+    height: auto;
+    max-height: 68dvh;
+    border: 0;
+    border-top: 1px solid var(--bd-rule);
+    box-shadow: var(--bd-shadow-raised);
+    transition: transform var(--bd-dur-normal) var(--bd-ease);
+  }
+  .bd-wb-paper[data-sheet="closed"] { transform: translateY(100%); }
+  /* 小屏上「复位视角」贴右上角，左上角的说明文字必须收窄，避免压到按钮 */
+  .bd-wb-hud { max-width: 58%; }
+  .bd-wb-stage__hint { display: none; }
+  /* 底栏在移动端需要一个可点的按钮，避免与抽屉重叠 */
+  .bd-wb-stage__bottom { bottom: var(--bd-space-2); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .bd-welcome { transition: none; }
-  .bd-wb-stage__spinner { animation: none; }
+  .bd-wb-paper { transition: none; }
 }
+
+/* stage.css 里的加载指示器依赖这个关键帧 */
+@keyframes bd-spin { to { transform: rotate(360deg); } }

@@ -1,229 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createAtlasLoader, type AtlasLoaderWithProfiles, type LoadedAtlasCollection } from '@vixotic/vanatome-atlas';
-import type { VanatomeAtlas } from '@vixotic/vanatome-react';
-
 /**
- * Vanatome 官方 atlas 1.4.0 的加载与「按系统懒加载」封装。
+ * 解剖结构 ↔ BodyDay 领域实体 的映射层（纯数据，不引入任何渲染依赖）。
  *
- * 说明：
- * - 官方 CDN 实测 `access-control-allow-origin: *`，可浏览器直载。
- * - 允许通过 `VITE_BODYDAY_ATLAS_URL` 指向自建镜像（同一 release 版本），
- *   以满足部署环境无法访问外网时的自托管需求。
- * - 组件不直接拼路径：一律通过本模块的具名常量与 Hook。
+ * V2 起人体由本作品自建的 R3F 舞台渲染（见 `three/FullBodyStage.tsx`），
+ * 因此这里不再承担 atlas 目录加载，只保留三件事：
+ * 1. 已在真实模型中核对过的结构 ID 常量；
+ * 2. 结构 ID 与领域实体 ID 的双向映射（含英文名与系统名口径）；
+ * 3. 系统 ID → 中文名的展示口径。
+ *
+ * 约定：任何写进代码的结构 ID，都必须先在真实 GLB 的 `extras.anatomyId` 中出现过。
  */
 
-/** 官方 release（实测 2026-10-14 可达，HTTP 200） */
-export const OFFICIAL_CATALOG_URL =
-  'https://atlas.vanatome.vixotic.in/releases/1.4.0/catalog.json';
-
-export function resolveCatalogUrl(): string {
-  const override = import.meta.env?.VITE_BODYDAY_ATLAS_URL as string | undefined;
-  return override && override.trim().length > 0 ? override.trim() : OFFICIAL_CATALOG_URL;
-}
-
-/**
- * 实测存在于 atlas 1.4.0 metadata 中的结构 ID。
- * 任何聚焦/选中操作前都必须先在本表命中，禁止写死猜测 ID。
- */
+/** 实测存在于 GLB `extras.anatomyId` 中的关键结构 ID（前置核对，禁止猜测）。 */
 export const ATLAS_STRUCTURE_IDS = {
+  /** 体表外壳：整具人体的最外层，拆解时随进度渐进隐去 */
   bodyShell: 'body-shell',
-  skeleton: 'skeleton',
   cerebrum: 'cerebrum',
   cerebellum: 'cerebellum',
   brainstem: 'brainstem',
   heart: 'heart',
-  cardiacInternalStructures: 'cardiac-internal-structures',
   spleen: 'spleen',
-  lymphoidOrgans: 'lymphoid-organs',
 } as const;
 
 export type AtlasStructureId = (typeof ATLAS_STRUCTURE_IDS)[keyof typeof ATLAS_STRUCTURE_IDS];
 
-/** bundle ↔ 系统映射（bundle id 与 catalog 实测一致） */
-export const ATLAS_BUNDLES = {
-  bodyShell: 'regional-anatomy',
-  skeletal: 'skeletal',
-  nervous: 'nervous',
-  cardiovascular: 'cardiovascular',
-  lymphatic: 'lymphatic',
-  respiratory: 'respiratory',
-  digestive: 'digestive',
-  endocrine: 'endocrine',
-  muscular: 'muscular',
-  urinary: 'urinary',
-  reproductive: 'reproductive',
-} as const;
-
-export type AtlasBundleId = (typeof ATLAS_BUNDLES)[keyof typeof ATLAS_BUNDLES];
-
-/** 人体总览的稳定上下文：外壳 + 骨骼 */
-export const BODY_CONTEXT_BUNDLES: AtlasBundleId[] = [ATLAS_BUNDLES.bodyShell, ATLAS_BUNDLES.skeletal];
-
-/** BodyDay 实体 → 需要加载的 bundle */
-export const ENTITY_BUNDLE: Record<string, AtlasBundleId> = {
-  'nervous-system': ATLAS_BUNDLES.nervous,
-  'cardiovascular-system': ATLAS_BUNDLES.cardiovascular,
-  'lymphatic-system': ATLAS_BUNDLES.lymphatic,
-  brain: ATLAS_BUNDLES.nervous,
-  heart: ATLAS_BUNDLES.cardiovascular,
-  spleen: ATLAS_BUNDLES.lymphatic,
-};
-
-export type AtlasLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
-
-export interface AtlasLoadError {
-  code: string;
-  message: string;
-  /** 面向用户的可执行建议 */
-  hint: string;
-}
-
-function toLoadError(err: unknown): AtlasLoadError {
-  const code = (err as { code?: string })?.code ?? 'unknown';
-  const map: Record<string, string> = {
-    'fetch-unavailable': '当前浏览器不支持网络请求（fetch）。',
-    'catalog-fetch': '无法从官方 CDN 获取 atlas 目录，可能是网络不可达或被拦截。',
-    'catalog-invalid': 'atlas 目录格式与预期不符。',
-    'metadata-fetch': '无法获取该系统的结构清单。',
-    'metadata-invalid': '该系统的结构清单格式异常。',
-    'bundle-not-found': '该解剖系统在 atlas 中不存在。',
-    'system-not-found': '未找到对应系统。',
-    aborted: '请求已被取消。',
-  };
-  return {
-    code,
-    message: (err as Error)?.message ?? '解剖模型加载失败。',
-    hint:
-      map[code] ??
-      '请检查网络后重试；若部署环境无法访问外网，可配置 VITE_BODYDAY_ATLAS_URL 指向自建镜像。',
-  };
-}
-
-let sharedLoader: AtlasLoaderWithProfiles | null = null;
-
-/** 同一个 loader 实例在会话内复用（catalog 只取一次） */
-export function getAtlasLoader(): AtlasLoaderWithProfiles {
-  if (!sharedLoader) {
-    sharedLoader = createAtlasLoader({ catalogUrl: resolveCatalogUrl() });
-  }
-  return sharedLoader;
-}
-
-export interface AtlasCompositionState {
-  status: AtlasLoadStatus;
-  atlases: VanatomeAtlas[];
-  systemIds: string[];
-  error: AtlasLoadError | null;
-  retry: () => void;
-  /** 手动触发重新加载（例如外部条件变化） */
-  reload: () => void;
-}
-
-/**
- * 按系统懒加载一组 bundle，并组合成可交给 VanatomeViewer 的 `atlases`。
- *
- * - 切换系统时只卸载/加载变化部分由 VanatomeViewer 处理；
- * - 组件卸载或依赖变化时中止过期请求；
- * - 失败时给出真实错误与重试入口，不白屏。
- */
-export function useAtlasComposition(bundleIds: AtlasBundleId[]): AtlasCompositionState {
-  const key = useMemo(() => [...bundleIds].sort().join('|'), [bundleIds]);
-  const [status, setStatus] = useState<AtlasLoadStatus>('idle');
-  const [collection, setCollection] = useState<LoadedAtlasCollection | null>(null);
-  const [error, setError] = useState<AtlasLoadError | null>(null);
-  const [nonce, setNonce] = useState(0);
-  const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    if (!key) {
-      setCollection(null);
-      setStatus('idle');
-      return;
-    }
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setStatus('loading');
-    setError(null);
-
-    getAtlasLoader()
-      .loadSystems(key.split('|') as AtlasBundleId[], { signal: controller.signal, concurrency: 3 })
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        setCollection(result);
-        setStatus('ready');
-      })
-      .catch((err: unknown) => {
-        if (controller.signal.aborted) return;
-        setCollection(null);
-        setError(toLoadError(err));
-        setStatus('error');
-      });
-
-    return () => controller.abort();
-  }, [key, nonce]);
-
-  const retry = useCallback(() => setNonce((n) => n + 1), []);
-  const reload = retry;
-
-  /**
-   * 注意：必须在这里 memo 化返回的数组引用。
-   * 若每次都返回 `[...collection.atlases]` 这样的新数组，
-   * 上层所有以 `composition.atlases` 为依赖的 useMemo 都会每帧失效，
-   * 进而触发「effect → setState → 重渲染 → effect」的无限更新循环。
-   */
-  const atlases = useMemo<VanatomeAtlas[]>(
-    () => (collection ? [...collection.atlases] : []),
-    [collection],
-  );
-  const systemIds = useMemo<string[]>(
-    () => (collection ? [...collection.systemIds] : []),
-    [collection],
-  );
-
-  return {
-    status,
-    atlases,
-    systemIds,
-    error,
-    retry,
-    reload,
-  };
-}
-
-/** 判断某 atlas 结构 ID 是否真实存在于已加载的 atlases 中 */
-export function hasStructure(atlases: readonly VanatomeAtlas[], structureId: string): boolean {
-  return atlases.some((a) => a.structures.some((s) => s.id === structureId));
-}
-
-/** 取出某结构在 atlas 中登记的落点（用于渲染外部标注/兜底聚焦点） */
-export function structurePosition(
-  atlases: readonly VanatomeAtlas[],
-  structureId: string,
-): readonly [number, number, number] | null {
-  for (const atlas of atlases) {
-    const found = atlas.structures.find((s) => s.id === structureId);
-    if (found) return found.position;
-  }
-  return null;
-}
-
-/** 在已加载 atlases 中查找真实结构（用于展示非 BodyDay 实体的结构信息） */
-export function findStructure(
-  atlases: readonly VanatomeAtlas[],
-  structureId: string | null,
-): { id: string; name: string; kind?: string; system: string } | null {
-  if (!structureId) return null;
-  for (const atlas of atlases) {
-    const found = atlas.structures.find((s) => s.id === structureId);
-    if (found) {
-      return { id: found.id, name: found.name, kind: found.kind, system: found.system };
-    }
-  }
-  return null;
-}
-
+/** atlas 系统 ID → 中文名（与 GLB 的 `extras.anatomySystem` 取值一一对应） */
 export const SYSTEM_LABELS: Record<string, string> = {
   cardiovascular: '循环系统',
   digestive: '消化系统',
@@ -238,95 +38,119 @@ export const SYSTEM_LABELS: Record<string, string> = {
   urinary: '泌尿系统',
 };
 
-/** catalog 中实测存在的 11 个系统（按 BodyDay 的阅读顺序排列） */
-export const ATLAS_SYSTEMS: { id: string; name: string; bundle: AtlasBundleId | null; open: boolean }[] = [
-  { id: 'nervous', name: '神经系统', bundle: 'nervous', open: true },
-  { id: 'cardiovascular', name: '循环系统', bundle: 'cardiovascular', open: true },
-  { id: 'lymphatic', name: '淋巴系统', bundle: 'lymphatic', open: true },
-  { id: 'skeletal', name: '骨骼系统', bundle: 'skeletal', open: false },
-  { id: 'muscular', name: '肌肉系统', bundle: 'muscular', open: false },
-  { id: 'respiratory', name: '呼吸系统', bundle: 'respiratory', open: false },
-  { id: 'digestive', name: '消化系统', bundle: 'digestive', open: false },
-  { id: 'endocrine', name: '内分泌系统', bundle: 'endocrine', open: false },
-  { id: 'urinary', name: '泌尿系统', bundle: 'urinary', open: false },
-  { id: 'reproductive', name: '生殖系统', bundle: 'reproductive', open: false },
-  { id: 'regional-anatomy', name: '体表与区域解剖', bundle: 'regional-anatomy', open: false },
-];
-
-export function atlasAttribution(atlases: readonly VanatomeAtlas[]): string {
-  const first = atlases[0];
-  return first ? first.attribution : '';
+export function systemLabel(systemId: string | null | undefined): string | null {
+  if (!systemId) return null;
+  return SYSTEM_LABELS[systemId] ?? null;
 }
 
-/* ---------------- 结构 ID ↔ BodyDay 实体 ID 的双向映射 ---------------- */
+/* ---------------- 结构 ID ↔ BodyDay 实体 ID ---------------- */
 
-/** BodyDay 关心的器官结构 → 其所属领域实体 */
-const KEY_ORGAN_STRUCTURES: Record<string, string> = {
+/**
+ * BodyDay 已建立科普卡片的器官结构 → 其所属领域实体。
+ *
+ * 这些结构在真实模型里都是**整块器官几何**（cerebrum 为端脑整体、heart 为整颗心、
+ * spleen 为整个脾），因此可以直接作为「聚焦 + 隔离」的目标。
+ */
+export const ORGAN_STRUCTURE_ENTITY: Record<string, string> = {
   cerebrum: 'brain',
   cerebellum: 'brain',
   brainstem: 'brain',
   heart: 'heart',
-  'cardiac-internal-structures': 'heart',
   spleen: 'spleen',
-  'lymphoid-organs': 'spleen',
 };
 
-/** 领域实体 → atlas 中用于聚焦的结构 ID（必须是真实存在的结构） */
+/** 领域实体 → 用于聚焦的结构 ID（必须是真实存在的结构） */
 export const ENTITY_STRUCTURE: Record<string, string> = {
   brain: ATLAS_STRUCTURE_IDS.cerebrum,
   heart: ATLAS_STRUCTURE_IDS.heart,
   spleen: ATLAS_STRUCTURE_IDS.spleen,
 };
 
+/** 全部已登记器官结构 ID（供舞台判定「点到了已登记的器官」） */
+export const ORGAN_STRUCTURE_IDS: string[] = Object.keys(ORGAN_STRUCTURE_ENTITY);
+
+/**
+ * 可作为「整块结构」被点选的已登记结构 ID。
+ *
+ * 除器官外还包含体表外壳：在装配状态下，用户点到的第一层几乎总是皮肤，
+ * 若把它拆成「一个皮肤面片」来选中会非常怪。归并到 `body-shell` 整块，
+ * 既符合解剖层级（体表本就是一层结构），也让高亮落在能看懂的轮廓上。
+ * 注意体表没有独立的科普卡片，界面会如实说明，而不是编一段内容。
+ */
+export const FOREGROUND_STRUCTURE_IDS: string[] = [...ORGAN_STRUCTURE_IDS, ATLAS_STRUCTURE_IDS.bodyShell];
+
+/**
+ * 已登记结构在界面上的中文名。
+ *
+ * 有对应领域实体的结构（大脑、心脏…）也用这张表，是为了让「点某块结构」时
+ * 标题显示的是**整块结构**的名字，而不是被点中的那一小块曲线的名字。
+ * 没有对应实体、也不在这张表里的结构，则退回它的真实英文解剖名。
+ */
+export const STRUCTURE_LABELS: Record<string, string> = {
+  [ATLAS_STRUCTURE_IDS.bodyShell]: '体表（皮肤）',
+  [ATLAS_STRUCTURE_IDS.cerebrum]: '大脑（端脑）',
+  [ATLAS_STRUCTURE_IDS.cerebellum]: '小脑',
+  [ATLAS_STRUCTURE_IDS.brainstem]: '脑干',
+  [ATLAS_STRUCTURE_IDS.heart]: '心脏',
+  [ATLAS_STRUCTURE_IDS.spleen]: '脾脏',
+};
+
+export function entityForStructure(structureId: string | null | undefined): string | null {
+  if (!structureId) return null;
+  return ORGAN_STRUCTURE_ENTITY[structureId] ?? null;
+}
+
 export function atlasStructureFor(entityId: string | null | undefined): string | null {
   if (!entityId) return null;
   return ENTITY_STRUCTURE[entityId] ?? null;
 }
 
+/* ---------------- 三维点选的结果对象 ---------------- */
+
 /**
- * 由已加载的 atlases 构建 `结构 ID → 领域实体 ID` 的映射。
- * 通过真实 `parentId` 链回溯，把子结构归属到 BodyDay 的器官实体，
- * 不使用任何猜测或兜底规则。
+ * 一次真实点选的结果。
+ *
+ * `targetId` 与 `structureId` 分开，是为了让「点大脑里的某个脑区」既精确又符合直觉：
+ * 高亮/隔离/聚焦作用在 `targetId`（整块端脑），而面板可以同时告诉用户
+ * 他实际点到的是 `structureId`（某个具体脑区）。
  */
-export function buildStructureEntityIndex(
-  atlases: readonly VanatomeAtlas[],
-): Record<string, string> {
-  const index: Record<string, string> = {};
-  for (const atlas of atlases) {
-    const byId = new Map(atlas.structures.map((s) => [s.id, s]));
-    for (const structure of atlas.structures) {
-      if (KEY_ORGAN_STRUCTURES[structure.id]) {
-        index[structure.id] = KEY_ORGAN_STRUCTURES[structure.id];
-        continue;
-      }
-      // 向上回溯到最近的已知器官结构
-      let cursor = structure.parentId;
-      let guard = 0;
-      while (cursor && guard < 10) {
-        if (KEY_ORGAN_STRUCTURES[cursor]) {
-          index[structure.id] = KEY_ORGAN_STRUCTURES[cursor];
-          break;
-        }
-        cursor = byId.get(cursor)?.parentId;
-        guard += 1;
-      }
-    }
-  }
-  return index;
+export interface StructureHit {
+  /** 高亮 / 隔离 / 聚焦的作用目标：已登记结构优先，否则为被点结构自身 */
+  targetId: string;
+  /** 被点中的那一个结构自身的 anatomyId */
+  structureId: string;
+  /** 沿解剖父链命中的已登记结构（cerebrum / heart / spleen / body-shell）；没有则为 null */
+  knownStructureId: string | null;
+  /** 真实解剖英文名（未登记中文名的结构使用它，不编造译名） */
+  name: string | null;
+  /** atlas 系统 ID（如 nervous） */
+  systemId: string | null;
 }
 
-/** 从已加载 atlases 中取出某个器官实体的全部真实结构（用于结构清单） */
-export function organStructures(
-  atlases: readonly VanatomeAtlas[],
-  organEntityId: string,
-): VanatomeAtlas['structures'][number][] {
-  const index = buildStructureEntityIndex(atlases);
-  const result: VanatomeAtlas['structures'][number][] = [];
-  for (const atlas of atlases) {
-    for (const structure of atlas.structures) {
-      if (structure.kind === 'system') continue;
-      if (index[structure.id] === organEntityId) result.push(structure);
-    }
-  }
-  return result;
+/** 点选结果 → 可展示的结构信息（把内部 ID 挡在用户界面之外）。 */
+export interface StructureInfo {
+  structureId: string;
+  /** 能映射到 BodyDay 实体时给出实体 ID，否则为 null */
+  entityId: string | null;
+  /** 优先已登记中文名；没有登记中文名时退回真实英文解剖名；两者都没有则为 null */
+  name: string | null;
+  /** 中文系统名 */
+  system: string | null;
+  /** 被点中的细分结构（与 targetId 不同时才有意义） */
+  partName: string | null;
+}
+
+export function describeStructure(hit: StructureHit): StructureInfo {
+  const entityId = entityForStructure(hit.knownStructureId);
+  // 「点到了整块结构内部的某一小块」是常见情况（如端脑下的某个脑区）：
+  // 此时 name 取整块结构的名字，partName 才是被点中的那一小块的真实解剖名。
+  const partName =
+    hit.knownStructureId && hit.structureId !== hit.knownStructureId ? hit.name : null;
+  return {
+    structureId: hit.targetId,
+    entityId,
+    name: (hit.knownStructureId ? STRUCTURE_LABELS[hit.knownStructureId] : null) ?? hit.name,
+    system: systemLabel(hit.systemId),
+    partName,
+  };
 }

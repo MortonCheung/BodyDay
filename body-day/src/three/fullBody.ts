@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { ATLAS_STRUCTURE_IDS, type StructureHit } from '../services/atlas';
+import { FULL_BODY_MODEL_URL } from '../services/anatomyModel';
 
 /**
  * 整具人体拆解舞台的纯计算内核。
@@ -8,27 +10,7 @@ import * as THREE from 'three';
  * 位移量永远由 progress 重新计算而非累加，这是「反复拆解 0→1→0→1 不产生累计偏移」的前提。
  */
 
-/** 官方 release 1.4.0 的静态资源根：catalog 与 models 同源（实测均返回 HTTP 200）。 */
-export const FULL_BODY_ASSET_BASE = 'https://atlas.vanatome.vixotic.in';
-
-/** curated-full-body（整具人体）在资源根下的相对路径。 */
-const FULL_BODY_MODEL_PATH = '/models/z-anatomy-1.4.0-full-body.glb';
-
-/**
- * 整具人体 GLB 的真实地址。
- *
- * 允许用 `VITE_BODYDAY_ATLAS_URL` 覆盖资源根（部署环境无法访问外网时的自建镜像）；
- * 覆盖值按**基址**使用，尾部斜杠会被去掉，其余路径按上面的常量拼接。
- */
-export function resolveFullBodyModelUrl(): string {
-  const raw = import.meta.env?.VITE_BODYDAY_ATLAS_URL as string | undefined;
-  const trimmed = typeof raw === 'string' ? raw.trim() : '';
-  const base = trimmed.length > 0 ? trimmed.replace(/\/+$/, '') : FULL_BODY_ASSET_BASE;
-  return `${base}${FULL_BODY_MODEL_PATH}`;
-}
-
-/** 运行时从 CDN 加载，不把 30 MB 的 GLB 下载进仓库。 */
-export const FULL_BODY_MODEL_URL = resolveFullBodyModelUrl();
+export { FULL_BODY_MODEL_URL };
 
 /* ---------------- 拆解位移的定标常量 ---------------- */
 
@@ -47,10 +29,72 @@ export const EXPLOSION_MIN_RADIUS = 0.06;
  */
 export const EXPLOSION_MAX_RADIUS_RATIO = 0.25;
 
+/**
+ * 按解剖系统分层的径向位移：同一系统的结构组移动到同一个「层」。
+ *
+ * 这不是装饰性的随机散开，而是一次**有解剖含义的逐层剥离**：
+ * 从体表（皮肤）→ 肌肉 → 骨骼 → 内脏/管道 → 深部调节系统，
+ * 越靠内的系统在完全拆解时被推得越远，因此内层不再被外层挡住。
+ * 未登记的系统（理论上不存在）默认落在第 0 层，只做自身尺寸定标的位移。
+ */
+export const EXPLOSION_SYSTEM_LAYER: Record<string, number> = {
+  'regional-anatomy': 0,
+  muscular: 1,
+  skeletal: 2,
+  cardiovascular: 3,
+  lymphatic: 3,
+  respiratory: 3,
+  digestive: 3,
+  urinary: 3,
+  nervous: 4,
+  endocrine: 4,
+  reproductive: 4,
+};
+
+/** 每一层额外增加的径向距离 = 人体包围球半径 × 该比例。 */
+export const EXPLOSION_LAYER_STEP_RATIO = 0.17;
+
+/** 体表外壳的结构 ID：拆解时它不承担「被推开」的角色，而是随进度渐进隐去。 */
+export const SHELL_STRUCTURE_ID = ATLAS_STRUCTURE_IDS.bodyShell;
+
+/**
+ * 结构部分的统一色板（按解剖系统）。
+ *
+ * 原始资产里「体表 / 骨骼 / 肌肉」默认使用同一组偏冷的青色，放在暖白纸面上会明显跳色；
+ * 这里把它们统一到暖调（象牙 ↔ 陶土），让中央的模型与纸面属于同一套视觉语言。
+ * 内脏、管道、神经等**保留资产自带的真实解剖配色**——那些颜色本身就承担了辨识功能。
+ *
+ * 这是一次显式的外观修改（属于 CC BY-SA 4.0 要求「标明修改」的部分），
+ * 「关于 · 数据与方法」页已如实说明。
+ */
+export const STRUCTURE_TINT: Record<string, string> = {
+  'regional-anatomy': '#dcc7b6',
+  skeletal: '#d9c6ae',
+  muscular: '#c39a84',
+};
+
+/** 外壳完全隐去所需的进度：`body-shell` 在 [0, 0.4] 内由不透明变为隐去。 */
+export const SHELL_FADE_END = 0.4;
+
 /** 拆解进度钳制到 [0, 1]；非法输入（NaN / Infinity）按 0 处理，不抛错。 */
 export function clampProgress(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * 外壳的实时不透明度。
+ *
+ * 拆解开始时需要先「去掉皮肤」才能看到内部——否则位移再大也会被最外层挡住。
+ * 这条曲线是单调递减的平滑过渡，progress = 0 时恒为 1（完全组装态外观不变）。
+ * 回归计算：smoothstep 保证两端变化率为 0，拖动进度条时不会出现突变。
+ */
+export function shellOpacity(progress: number): number {
+  const t = clampProgress(progress);
+  if (t >= SHELL_FADE_END) return 0;
+  const u = t / SHELL_FADE_END;
+  const eased = u * u * (3 - 2 * u);
+  return 1 - eased;
 }
 
 /**
@@ -110,18 +154,84 @@ export function resolveGroupMembers(
   return members;
 }
 
+/**
+ * 从某个结构沿解剖父链向上找**最近的已登记器官结构**。
+ *
+ * 用于把「点到大楼里的某个房间」归并成「点到了大楼」：例如点到端脑下的某个脑区，
+ * 归并目标仍是 `cerebrum`，界面据此高亮整块端脑。命中不到时返回 null，不做任何猜测。
+ */
+export function resolveOrganStructure(
+  structureId: string,
+  parents: Map<string, string>,
+  known: readonly string[],
+): string | null {
+  if (known.includes(structureId)) return structureId;
+  let cursor = parents.get(structureId);
+  let guard = 0;
+  while (cursor && guard < 64) {
+    if (known.includes(cursor)) return cursor;
+    cursor = parents.get(cursor);
+    guard += 1;
+  }
+  return null;
+}
+
 /** 由整具人体包围盒推出「单组位移半径」的上限。 */
 export function explosionMaxRadius(bounds: THREE.Box3): number {
   return (bounds.getSize(new THREE.Vector3()).length() / 2) * EXPLOSION_MAX_RADIUS_RATIO;
 }
 
-/** 一个可位移的结构组：真实几何中心 + 自身尺寸（用于定标位移距离）。 */
+/**
+ * 从节点名里取出**可展示的真实解剖英文名**。
+ *
+ * 真实 GLB 的节点名形如 `<结构ID>__<英文名>`（例：`cerebrum__Cerebrum`）。
+ * 取不到可读名时返回 null，界面改为只显示系统或「未命名结构」，
+ * 绝不把内部小写 ID 当作结构名展示。
+ */
+export function readableStructureName(object: THREE.Object3D, structureId: string): string | null {
+  const raw = typeof object.name === 'string' ? object.name : '';
+  const separator = raw.indexOf('__');
+  const part = (separator >= 0 ? raw.slice(separator + 2) : raw).trim();
+  if (!part || part === structureId) return null;
+  // 全小写的名字实际上就是内部 ID，不作为解剖名展示
+  if (!/[A-Z]/.test(part)) return null;
+  return part;
+}
+
+/**
+ * 把一次真实点选归一成面板可消费的 `StructureHit`。
+ *
+ * 全部数据都来自该网格自己的 `userData` 与解剖父链，不做任何猜测：
+ * - 命中已登记结构（含体表外壳）→ 高亮/隔离/聚焦整块结构；
+ * - 未命中 → 保留它自己的真实 ID 与真实英文名，界面据实说明暂无科普卡片。
+ */
+export function buildStructureHit(
+  object: THREE.Object3D,
+  parents: Map<string, string>,
+  known: readonly string[],
+): StructureHit | null {
+  const structureId = object.userData?.anatomyId;
+  if (typeof structureId !== 'string' || structureId.length === 0) return null;
+  const knownStructureId = resolveOrganStructure(structureId, parents, known);
+  const systemId = object.userData?.anatomySystem;
+  return {
+    targetId: knownStructureId ?? structureId,
+    structureId,
+    knownStructureId,
+    name: readableStructureName(object, structureId),
+    systemId: typeof systemId === 'string' && systemId.length > 0 ? systemId : null,
+  };
+}
+
+/** 一个可位移的结构组：真实几何中心 + 自身尺寸 + 所属解剖层。 */
 export interface ExplosionGroup {
   id: string;
   /** 该组网格在模型坐标系下的包围盒中心 */
   center: [number, number, number];
   /** 该组网格包围盒半径（半对角线），作为位移距离的尺度 */
   radius: number;
+  /** 所属解剖层（见 `EXPLOSION_SYSTEM_LAYER`）；缺省为 0 */
+  layer?: number;
 }
 
 /** 某个结构组在给定进度下的位移向量（模型坐标系）。 */
@@ -133,14 +243,18 @@ export interface ExplosionOffset {
 /**
  * 按进度计算每个结构组的位移向量。
  *
- * 纯函数：位移只由 `progress` 与组的真实几何决定，不读取也不写入任何累计状态。
+ * 纯函数：位移只由 `progress` 与组的真实几何、解剖层决定，不读取也不写入任何累计状态。
  * 因此 progress = 0 时位移恒为 0，且同一 progress 反复调用结果完全相同。
+ *
+ * @param maxRadius  单组「按自身尺寸定标」的距离上限（护栏，防止超大组把人体推出画面）
+ * @param bodyRadius 整具人体的包围球半径，用于把解剖层换算成真实距离
  */
 export function computeExplosionOffsets(
   groups: readonly ExplosionGroup[],
   axis: [number, number, number],
   progress: number,
   maxRadius: number = Number.POSITIVE_INFINITY,
+  bodyRadius: number = 0,
 ): ExplosionOffset[] {
   const t = clampProgress(progress);
   // smoothstep：两端变化率趋近 0，组装态与拆解态都更安静
@@ -151,7 +265,8 @@ export function computeExplosionOffsets(
     radial.normalize();
     const direction = radial.add(new THREE.Vector3(0, EXPLOSION_UP_BIAS, 0)).normalize();
     const scale = Math.max(EXPLOSION_MIN_RADIUS, Math.min(group.radius, maxRadius));
-    const distance = eased * scale * EXPLOSION_SPREAD;
+    const layer = Math.max(0, group.layer ?? 0);
+    const distance = eased * (scale * EXPLOSION_SPREAD + layer * bodyRadius * EXPLOSION_LAYER_STEP_RATIO);
     // 组装态的位移就是精确的零向量（避免出现 -0 这种无意义的符号）
     if (distance === 0) return { id: group.id, offset: [0, 0, 0] };
     const offset: [number, number, number] = [

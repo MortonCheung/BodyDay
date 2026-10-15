@@ -3,7 +3,12 @@ import { PageHeader, Notice } from '../../components/ui';
 import { ROUTES, PAGE_INDEX } from '../../app/routes';
 import { ENTITIES, LESSONS, RELATIONS, SOURCES } from '../../domain';
 import { ATLAS_ATTRIBUTION_TEXT } from '../../services/organAssets';
-import { resolveCatalogUrl } from '../../services/atlas';
+import {
+  ANATOMY_MODEL_VERSION,
+  ANATOMY_UPSTREAM_BASE,
+  isModelBundledLocally,
+  resolveFullBodyModelUrl,
+} from '../../services/anatomyModel';
 
 /**
  * 11 · 关于 · 数据与方法（封底）。
@@ -32,8 +37,9 @@ export function AboutPage() {
             <div className="bd-panel bd-panel--flat">
               <span className="bd-label">结构化数据</span>
               <p className="bd-body-secondary">
-                实体 {ENTITIES.length} 条、科学关系 {RELATIONS.length} 条、引导课程 {LESSONS.length} 套、来源 {SOURCES.length} 条，
-                全部为纯数据，可逐条核对与扩展。
+                实体 {ENTITIES.length} 条、科学关系 {RELATIONS.length} 条、来源 {SOURCES.length} 条，
+                全部为纯数据，可逐条核对与扩展。另附跨尺度科普脚本 {LESSONS.length} 套，
+                作为内容资产保留，供后续扩展使用。
               </p>
             </div>
             <div className="bd-panel bd-panel--flat">
@@ -115,21 +121,31 @@ export function AboutPage() {
                 <br />
                 来源：Z-Anatomy — The libre 3D atlas of anatomy（主要贡献者 Gauthier Kervyn、Marcin Zielinski），
                 许可是 Creative Commons Attribution-ShareAlike 4.0 International。
-                本作品对 atlas 的适配包括：结构 ID 映射、系统按需加载、外观参数调整；分发适配版本时按 CC BY-SA 4.0 履行署名、
-                标明修改并以相同方式共享。
+                本作品对模型的适配包括：按解剖系统的结构分组与位移、体表外壳的渐进隐去、
+                系统级可见性过滤、选中高亮与取景、体表与骨骼/肌肉系统的统一暖调配色
+                （内脏保留资产自带配色），以及自建 R3F 舞台的加载与生命周期管理；
+                分发适配版本时按 CC BY-SA 4.0 履行署名、标明修改并以相同方式共享。
                 <br />
-                当前使用的 atlas 目录地址：
-                <code style={{ wordBreak: 'break-all' }}> {resolveCatalogUrl()}</code>
-                （亦可通过环境变量 <code>VITE_BODYDAY_ATLAS_URL</code> 指向同版本自建镜像）。
+                当前使用的模型（{ANATOMY_MODEL_VERSION}）：
+                <code style={{ wordBreak: 'break-all' }}> {resolveFullBodyModelUrl()}</code>
+                <br />
+                {isModelBundledLocally()
+                  ? '模型随作品一起发布在 public/models/，不依赖运行时外链；断网或离线评审也能正常打开。'
+                  : '当前通过同版本镜像加载（由 VITE_BODYDAY_ATLAS_URL 指定）。'}
+                <br />
+                上游来源：<code style={{ wordBreak: 'break-all' }}>{ANATOMY_UPSTREAM_BASE}</code>；
+                CC BY-SA 4.0 的署名、修改说明与许可全文见
+                <code> public/models/ANATOMY_LICENSE.txt</code>。
               </p>
             </div>
             <div className="bd-panel bd-panel--flat">
               <span className="bd-label">查看器与代码</span>
               <p className="bd-body-secondary">
-                Vanatome 查看器（<code>@vixotic/vanatome-react</code>、<code>@vixotic/vanatome-atlas</code>）为 MIT 许可的第三方依赖；
-                其余前端技术栈包括 React、Three.js、React Three Fiber、Drei、React Router（均为 MIT）。
+                三维渲染由本作品自建的 React Three Fiber 舞台完成（React、Three.js、
+                React Three Fiber、Drei、React Router 均为 MIT 许可的开源依赖）。
                 <br />
-                BodyDay 自身的产品结构、交互设计、视觉系统、科普文本、关系数据、课程状态机与
+                BodyDay 自身的产品结构、交互设计、视觉系统、科普文本、关系数据、
+                拆解与分层位移算法、以及
                 <strong>程序化细胞几何</strong>均为本作品原创实现。
               </p>
             </div>
@@ -153,6 +169,11 @@ export function AboutPage() {
             <ul className="bd-body-secondary" style={{ display: 'grid', gap: 8 }}>
               <li>· 本作品为面向大众的健康科普作品，<strong>不构成医疗建议</strong>，不能用于疾病诊断、治疗或用药决策。</li>
               <li>· 三维解剖与细胞模型为科普示意：器官不按真实比例；细胞为程序化概括形态；标注点为示意位置，未与模型做逐点配准。</li>
+              <li>
+                · 「拆解」是把**真实几何**按解剖系统分层向外平移、并随进度渐进隐去体表外壳的结果，
+                用于说明人体由哪些结构组成；平移距离是为看清结构而放大的示意量，
+                <strong>不代表器官在体内会彼此远离，也不代表真实的空间分离距离</strong>。
+              </li>
               <li>· 作品呈现的跨尺度切换为语义连续的镜头转场，不声称与真实人体空间坐标严格配准。</li>
               <li>· 内容面向健康人群的通用科普；个体健康状况请咨询专业医务人员。</li>
             </ul>

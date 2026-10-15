@@ -78,7 +78,14 @@ export function PageHeader({
 
 /* ---------------- 知识卡 ---------------- */
 
-export function KnowledgeCard({ entity }: { entity: BodyEntity }) {
+export function KnowledgeCard({
+  entity,
+  showSources = true,
+}: {
+  entity: BodyEntity;
+  /** 探索界面里不展开来源清单（统一收进「关于」），避免把知识读成数据表 */
+  showSources?: boolean;
+}) {
   const systemTone =
     entity.id === 'brain' || entity.id === 'nervous-system' || entity.id.startsWith('neuron')
       ? 'neural'
@@ -121,7 +128,7 @@ export function KnowledgeCard({ entity }: { entity: BodyEntity }) {
 
       {entity.scaleNote ? <p className="bd-caption">{entity.scaleNote}</p> : null}
 
-      <SourceList ids={entity.sources} />
+      {showSources ? <SourceList ids={entity.sources} /> : null}
     </article>
   );
 }

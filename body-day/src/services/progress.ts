@@ -1,16 +1,14 @@
 /**
  * 本地学习记录（localStorage 足够，不为轻量学习记录新建后端）。
  *
- * 记录三类：
- *  - 已发现结构（自由探索）
- *  - 课程进度（引导教学：步骤位置、已完成步骤、测验作答）
- *  - 界面偏好（模式、减弱动态）
- * 全部可一键清空。
+ * V2 之后这里只保留「已发现结构」。
+ * 旧版把「自由探索 / 引导教学」模式写进本地存储，那个模式已经取消，
+ * 相应字段一并删除 —— 否则旧数据会在新界面上留下无意义的残留状态。
+ * 已有的课程与测验数据仍作为历史内容资产保留在 `domain/lessons.ts`。
  */
 
 const KEY_DISCOVERED = 'bodyday.discovered.v1';
 const KEY_LESSONS = 'bodyday.lessons.v1';
-const KEY_PREFS = 'bodyday.prefs.v1';
 
 export interface LessonProgress {
   stepIndex: number;
@@ -18,11 +16,6 @@ export interface LessonProgress {
   /** questionId → 是否答对 */
   answers: Record<string, boolean>;
   updatedAt: string;
-}
-
-export interface Prefs {
-  mode: 'explore' | 'learn';
-  reducedMotion?: boolean;
 }
 
 function safeRead<T>(key: string, fallback: T): T {
@@ -81,17 +74,6 @@ export function resetLesson(lessonId: string): void {
   const all = readLessonProgress();
   delete all[lessonId];
   safeWrite(KEY_LESSONS, all);
-}
-
-/* ---------------- 偏好 ---------------- */
-
-export function readPrefs(): Prefs {
-  const p = safeRead<Prefs>(KEY_PREFS, { mode: 'explore' });
-  return p && (p.mode === 'explore' || p.mode === 'learn') ? p : { mode: 'explore' };
-}
-
-export function writePrefs(prefs: Prefs): void {
-  safeWrite(KEY_PREFS, prefs);
 }
 
 /* ---------------- 清空 ---------------- */
