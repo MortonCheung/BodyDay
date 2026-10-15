@@ -10,6 +10,7 @@ import {
   computeBodyAxis,
   computeExplosionOffsets,
   explosionMaxRadius,
+  isPublicDisplayExcluded,
   readableStructureName,
   resolveGroupMembers,
   resolveOrganStructure,
@@ -241,6 +242,40 @@ describe('按解剖系统分层位移', () => {
     const withoutBody = computeExplosionOffsets(groups, axis, 1);
     const withBody = computeExplosionOffsets(groups, axis, 1, Number.POSITIVE_INFINITY, bodyRadius);
     expect(withBody).toEqual(withoutBody);
+  });
+});
+
+describe('公开展示过滤（中性化默认人体）', () => {
+  it('生殖系统的网格一律隐去', () => {
+    expect(isPublicDisplayExcluded('reproductive', 'testes-testis-left__Testis.l')).toBe(true);
+    expect(isPublicDisplayExcluded('reproductive', 'prostate__Prostate')).toBe(true);
+  });
+
+  it('体表上构成外生殖器的那块几何按真实节点名隐去（仅过滤系统并不够）', () => {
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital region.l')).toBe(true);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital region.r')).toBe(true);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Pubic hairs')).toBe(true);
+  });
+
+  it('节点名被 GLTFLoader 清洗（空格与点变下划线）后仍能正确匹配', () => {
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital_region_l')).toBe(true);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital_region_r')).toBe(true);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Pubic_hairs')).toBe(true);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Mammary_region_l')).toBe(false);
+  });
+
+  it('正常结构不受影响：胸部、骨盆、腹股沟、下肢都保留', () => {
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Mammary region.l')).toBe(false);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Inframammary region.l')).toBe(false);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Inguinal region.l')).toBe(false);
+    expect(isPublicDisplayExcluded('skeletal', 'skeleton-hip-bone-left__Hip bone.l')).toBe(false);
+    expect(isPublicDisplayExcluded('urinary', 'urinary-bladder__Bladder')).toBe(false);
+    expect(isPublicDisplayExcluded('nervous', 'cerebrum__Cerebrum')).toBe(false);
+  });
+
+  it('没有系统标注时只按节点名判断，不误伤', () => {
+    expect(isPublicDisplayExcluded(null, 'body-shell__Sole.l')).toBe(false);
+    expect(isPublicDisplayExcluded(null, 'body-shell__Pubic hairs')).toBe(true);
   });
 });
 

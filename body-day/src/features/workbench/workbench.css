@@ -54,19 +54,6 @@
   max-width: min(42ch, 62%);
   pointer-events: none;
 }
-.bd-wb-stage__actions {
-  position: absolute;
-  right: var(--bd-space-4);
-  top: var(--bd-space-4);
-  z-index: 3;
-  display: flex;
-  gap: 6px;
-}
-.bd-wb-stage__actions .bd-button {
-  background: var(--bd-paper-raised);
-  border-color: var(--bd-rule);
-}
-.bd-wb-stage__actions .bd-button:hover { border-color: var(--bd-ink); background: var(--bd-paper-sunken); }
 
 /* ---- 舞台底栏：拆解控制 + 操作提示 ---- */
 .bd-wb-stage__bottom {
@@ -126,6 +113,11 @@
   background: var(--bd-ink);
 }
 
+/* 桌面端（具备悬停能力的指针）由滚轮承担拆解，滑杆只留给触屏设备 */
+@media (hover: hover) and (pointer: fine) {
+  .bd-wb-explode { display: none; }
+}
+
 /* ---- 右侧知识纸条 ---- */
 .bd-wb-paper {
   min-width: 0;
@@ -143,16 +135,6 @@
 }
 .bd-wb-sheethead { display: flex; align-items: flex-start; gap: var(--bd-space-3); }
 .bd-wb-sheethead > .bd-wb-head { flex: 1 1 auto; }
-.bd-wb-sheetclose {
-  min-height: 32px;
-  padding: 0 var(--bd-space-3);
-  border: 1px solid var(--bd-rule);
-  background: var(--bd-paper-sunken);
-  color: var(--bd-ink-soft);
-  font-size: var(--bd-fs-meta);
-}
-
-/* ---- 纸条头部：尺度 + 秒级时钟 + 层级索引 ---- */
 .bd-wb-head {
   display: flex;
   flex-direction: column;
@@ -167,54 +149,14 @@
   gap: var(--bd-space-3);
   flex-wrap: wrap;
 }
-.bd-clock {
-  font-family: var(--bd-font-mono);
-  font-size: var(--bd-fs-meta);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
+.bd-wb-sheetclose {
+  min-height: 32px;
+  padding: 0 var(--bd-space-3);
+  border: 1px solid var(--bd-rule);
+  background: var(--bd-paper-sunken);
   color: var(--bd-ink-soft);
+  font-size: var(--bd-fs-meta);
 }
-.bd-clock__zone { color: var(--bd-ink-faint); margin-left: 6px; }
-
-/* 层级索引：一行纯文字链接，取代原来那栏常驻结构目录 */
-.bd-wb-index {
-  display: flex;
-  align-items: baseline;
-  gap: var(--bd-space-3);
-  flex-wrap: wrap;
-}
-.bd-wb-index__item {
-  padding-bottom: 1px;
-  border-bottom: 1px solid transparent;
-  color: var(--bd-ink-muted);
-  font-size: var(--bd-fs-small);
-  transition: color var(--bd-dur-fast) var(--bd-ease), border-color var(--bd-dur-fast) var(--bd-ease);
-}
-.bd-wb-index__item:hover { color: var(--bd-ink); border-bottom-color: var(--bd-rule-strong); }
-.bd-wb-index__item[data-active="true"] { color: var(--bd-ink); border-bottom-color: var(--bd-ink); }
-
-/* ---- 尺度轴 ---- */
-.bd-scaleline { display: flex; align-items: center; gap: 0; }
-.bd-scaleline__node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  flex: 0 0 auto;
-  color: var(--bd-ink-ghost);
-  transition: color var(--bd-dur-normal) var(--bd-ease);
-}
-.bd-scaleline__node[data-active="true"] { color: var(--bd-ink); }
-.bd-scaleline__node[data-past="true"] { color: var(--bd-ink-faint); }
-.bd-scaleline__tick { width: 1px; height: 12px; background: currentColor; opacity: 0.5; }
-.bd-scaleline__node[data-active="true"] .bd-scaleline__tick { opacity: 1; height: 18px; }
-.bd-scaleline__label {
-  font-family: var(--bd-font-mono);
-  font-size: var(--bd-fs-micro);
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-}
-.bd-scaleline__link { flex: 1 1 auto; height: 1px; background: var(--bd-rule); }
 
 /* ---- 纸条分节语言 ---- */
 .bd-wb-section { display: flex; flex-direction: column; gap: var(--bd-space-3); }
