@@ -7,6 +7,7 @@ import { prefersReducedMotion } from '../design/motion';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ExploreWorkbench } from '../features/workbench/ExploreWorkbench';
 import { AboutPage } from '../features/about/AboutPage';
+import { SpikeFullBodyPage } from '../features/spike/SpikeFullBodyPage';
 
 /**
  * 应用外壳（稳定宿主）。
@@ -131,7 +132,9 @@ export function AppShell() {
             </div>
           )}
         >
-          {view.kind === 'about' ? (
+          {view.kind === 'spike' ? (
+            <SpikeFullBodyPage />
+          ) : view.kind === 'about' ? (
             <AboutPage />
           ) : view.kind === 'notfound' ? null : (
             <ExploreWorkbench view={view} />

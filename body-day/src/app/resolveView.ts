@@ -9,7 +9,16 @@ import { SYSTEM_MAP } from '../domain';
  * 造成「地图先归位、再重新聚焦」式的画面跳动，也会重复加载模型。
  * 因此统一解析路径 → 同一棵组件树只更新 props。
  */
-export type ViewKind = 'cover' | 'body' | 'system' | 'organ' | 'cell' | 'about' | 'notfound';
+export type ViewKind =
+  | 'cover'
+  | 'body'
+  | 'system'
+  | 'organ'
+  | 'cell'
+  | 'about'
+  | 'notfound'
+  /** 临时技术验证入口：整具人体拆解舞台（V2 集成后删除） */
+  | 'spike';
 
 export interface ResolvedView {
   kind: ViewKind;
@@ -39,6 +48,8 @@ export function resolveView(pathname: string): ResolvedView {
   if (segments.length === 1) {
     if (segments[0] === 'body') return { kind: 'body', path: '/body' };
     if (segments[0] === 'about') return { kind: 'about', path: '/about' };
+    // 临时验证入口：不经导航暴露，只供技术取证直达
+    if (segments[0] === 'spike-full-body') return { kind: 'spike', path: '/spike-full-body' };
   }
 
   if (segments.length === 2) {
