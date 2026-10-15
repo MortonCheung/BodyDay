@@ -2,6 +2,8 @@
 
 > 本版为 **V2 口径**：产品形态是「以中央唯一真实三维人体为入口的空间工作台」，
 > 人体模型随作品发布（本地加载），人体 / 器官层由本作品自建的 React Three Fiber 舞台渲染。
+> **V2.1（2026-10-16）**：交互改为**滚轮驱动拆解**、选中为**高亮 + 其余淡化**、取消选中**恢复原视角**、
+> 默认人体**中性化公开展示**；已删除 `paperChrome.tsx`（尺度轴 / 时钟 / 层级目录）。
 
 ## 1. 技术栈
 
@@ -17,10 +19,10 @@ BodyDay 不是一组并列页面，而是**一个空间工作台（single spatia
 
 - 中央永远是**同一具真实三维人体**（本作品自建的 R3F 舞台 `FullBodyStage` 渲染，
   直接加载随包发布的 Z-Anatomy 整具人体 GLB）；
-- **右侧一条知识纸条** `KnowledgePaper`，随「当前选中」联动（当前选中 / 本页主体 /
-  与其它结构的关系 / 跨尺度 / 科学边界）；**没有左侧结构目录**；
-- 结构的选择完全交给模型本身：点选、悬停高亮、聚焦、隔离、逐层拆解，
-  以及「返回上一级」的层级栈；点模型空白处或按 **Esc** → 取消选中并回到本页默认取景；
+- **右侧一条知识纸条** `KnowledgePaper`，随「当前选中」联动（**V2.1**：所属系统 / 它是什么 /
+  它如何工作 / 与健康的关系 / 继续深入；尺度轴、时钟、层级目录已删除）；**没有左侧结构目录**；
+- 结构的选择完全交给模型本身：点选、悬停高亮、聚焦、隔离、**V2.1 滚轮驱动的逐层拆解**，
+  以及「返回上一级」的层级栈；点模型空白处或按 **Esc** → 取消选中、其余结构恢复、**相机回到选中前的视角**（V2.1）；
 - 人体 → 系统 → 器官 → 细胞之间的差别，只体现为**镜头位置与右纸条内容的变化**，
   不换页面外壳、不重挂三维场景。
 
@@ -65,7 +67,7 @@ src/
     FullBodyStage.tsx    自建人体舞台：位移、可见性、外壳淡化、材质自发光高亮、
                          相机取景、真实点选归一，onReady / onProgress / onProbe 三路真实上报
     fullBody.ts          解剖分层位移、外壳不透明度曲线、结构归并与可读名规则、点选归一（纯函数）
-    fullBody.test.ts     拆解位移与外壳不透明度的纯计算测试（24 项）
+    fullBody.test.ts     拆解位移、外壳不透明度与公开展示过滤的纯计算测试（28 项）
     ModelStage.tsx       细胞层的 Canvas 舞台 + 投影式热点层
     CellStage.tsx        细胞层舞台装配
     cellGeometry.ts      程序化神经元 / 白细胞几何 + 取景归一化（纯计算，可单测）
@@ -74,7 +76,7 @@ src/
     useStageState.ts     选中 / 悬停 / 聚焦 / 复位 / 转动 的统一状态
   components/            共享 UI、错误边界（ErrorBoundary）、舞台降级边界（StageBoundary）
   features/
-    workbench/           空间工作台（ExploreWorkbench / KnowledgePaper / paperChrome）
+    workbench/           空间工作台（ExploreWorkbench / KnowledgePaper；V2.1 已删除 paperChrome）
     startup/             启动封面闸门（StartupCover + startup.css）
     about/               封底阅读页面（AboutPage）
   legacy/dorm/           旧「寝室 3D Demo」（归档保留，不在新应用入口中）
@@ -84,6 +86,8 @@ src/
 > `three/AtlasStage.tsx`、`three/atlasSelection.ts`、`features/workbench/StructureRail.tsx`、
 > `WelcomeOverlay.tsx`、`GuidePanel.tsx`、`components/QuizBlock.tsx`，以及临时技术验证页 `/spike-full-body`；
 > 并移除 `@vixotic/vanatome-react` / `-atlas` 的所有代码引用。
+>
+> **V2.1（2026-10-16）另删除** `features/workbench/paperChrome.tsx`（尺度轴、秒级时钟、层级目录 quickLinks、重复的取消选中按钮）。
 
 ## 4. 关键工程决策
 
@@ -133,6 +137,9 @@ select / focus / isolate / reset / visibleLayers，**没有网格位移入口**�
 
 实测可见网格数 984 → 748，且**拆解后仍可点选**（按投影坐标 50% 一次命中心脏、100% 一次命中脾脏）。
 
+- **V2.1（2026-10-16）**：拆解进度改由**滚轮**驱动（未选中结构时每格 0.07、钳制 [0,1]，向下拆、向上合；此时 `enableZoom = false` 并在 canvas **捕获阶段**拦 wheel，只作用于三维舞台，右侧知识栏滚动不受影响；选中结构后交还 OrbitControls 缩放）；**桌面端拆解滑杆 `display: none`**（`@media (hover: hover) and (pointer: fine)`，触屏保留）。
+- **V2.1 公开展示中性化**：默认人体隐去 `reproductive` 系统与体表外壳对应几何共 **17 个网格**（14 + 2 + 1），可见网格 984 → **967**；因 three 的 `GLTFLoader` 会清洗节点名（空格 / 点 → 下划线），过滤按归一化后比较。
+
 ### 4.4 相机取景
 
 - atlas 元数据里的 `position` 只是**兜底锚点，并不在渲染坐标系中**；
@@ -172,7 +179,8 @@ select / focus / isolate / reset / visibleLayers，**没有网格位移入口**�
 - **导航状态**：当前视图（由 `resolveView` 派生）、当前尺度、选中实体 / 结构、拆解进度。
   学习进度写入 localStorage（`bodyday.discovered.v1` / `bodyday.prefs.v1`），可一键清空。
 - **选中是唯一的状态源**：模型点选、跨尺度跳转都写回同一份选中，
-  右纸条据此派生「当前选中 / 本页主体 / 与其它结构的关系 / 跨尺度 / 科学边界」五类内容。
+  右纸条据此派生「所属系统 / 它是什么 / 它如何工作 / 与健康的关系 / 继续深入」五类内容（V2.1）。
+- **V2.1**：聚焦前采集 `{position, target}` 快照，识别「有选中 → 无选中」跃迁后原路恢复相机（误差实测为 0）；未选中时滚轮驱动拆解进度（每格 0.07），选中后交还 OrbitControls。
 - **资源生命周期**：模型为随包发布的本地文件；探索页共用同一个工作台实例，切换页面**不会**卸载舞台。
 - **相机**：`FullBodyStage` 只接收「聚焦某结构 / 复位 / 拆解进度」的意图，
   机位由舞台按真实包围盒计算；`prefers-reduced-motion` 时关闭过渡动画。
@@ -187,7 +195,7 @@ select / focus / isolate / reset / visibleLayers，**没有网格位移入口**�
 | Selection | 当前选中的是哪一个？ | 三维结构材质自发光高亮 |
 | Route | 我是「进入」还是「返回」？ | 右侧纸条的纸张式揭起（`clipPath`），不动中央舞台 |
 | Camera | 我在空间中的哪里移动到哪里？ | 结构聚焦、器官取景、拆解后的包围盒联动 |
-| Scale | 换了尺度吗？ | 右侧纸条上的**跨尺度指示**（人体 / 系统 / 器官 / 细胞），**由镜头运动本身表达尺度变化** |
+| Scale | 换了尺度吗？ | **由镜头运动本身表达尺度变化**（V2.1 已删除右侧纸条上的尺度轴 / 跨尺度指示） |
 
 `prefers-reduced-motion: reduce` 时全部降级为**瞬时**，而不是换一段更短的动画。
 
@@ -199,4 +207,7 @@ select / focus / isolate / reset / visibleLayers，**没有网格位移入口**�
    但内部层间距仍可继续加大（当前每层额外位移 = 人体包围盒半径 × 0.17）。
 3. 细胞模型为程序化概括形态，不代表真实细胞形态学，也不按真实比例；细胞几何为本作品原创。
 4. **真实 GPU 帧率未采集**（自动化验收跑在 SwiftShader 软件渲染下）；
-   **移动端只在浏览器视口（390×844）下检查**，未在真机 / 模拟器验收。
+   **移动端只在浏览器视口（390×844）下检查**，未在真机 / 模拟器验收（触屏保留拆解滑杆）。
+5. **V2.1 未做连续跨尺度转场**：现为「镜头推进 + 明确的继续深入入口」，**不声称** GLB 能连续放大到细胞级。
+6. **V2.1 肾 / 膀胱未新增专题**（真实模型里 `urinary` 仅 3 个网格）。
+7. **V2.1 中性化的可见代价**：中性化是**中性化展示**、不是无性征人体；骨盆近观可见被移除外壳后露出的真实肌肉 / 骨盆结构（解剖切口观感），已如实记录，未用遮挡方块掩盖、也未改成医学上错误的形态。

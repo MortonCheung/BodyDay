@@ -106,7 +106,6 @@ export function atlasStructureFor(entityId: string | null | undefined): string |
 }
 
 /* ---------------- 三维点选的结果对象 ---------------- */
-
 /**
  * 一次真实点选的结果。
  *

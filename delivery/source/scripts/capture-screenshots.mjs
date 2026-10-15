@@ -174,10 +174,13 @@ await vpage.mouse.move(stageBox.x + stageBox.width * 0.36, stageBox.y + stageBox
 await vpage.mouse.up();
 await pause(2200);
 
-for (const percent of [30, 62, 100]) {
-  await setExplode(vpage, percent);
-  await pause(600);
+/* 用真实滚轮逐层拆解（视频里呈现的是用户实际会做的操作，而不是拖滑杆） */
+await vpage.mouse.move(stageBox.x + stageBox.width / 2, stageBox.y + stageBox.height / 2);
+for (let step = 0; step < 14; step += 1) {
+  await vpage.mouse.wheel(0, 120);
+  await pause(260);
 }
+await pause(1200);
 
 const probe = (await readProbe(vpage))?.probe;
 if (probe?.screen?.heart) {
@@ -198,9 +201,13 @@ if (await clearBtn.count()) {
 
 await vpage.goto(`${BASE}/#/body`, { waitUntil: 'domcontentloaded' });
 await pause(3200);
+await vpage.mouse.move(stageBox.x + stageBox.width / 2, stageBox.y + stageBox.height / 2);
+for (let step = 0; step < 8; step += 1) {
+  await vpage.mouse.wheel(0, 120);
+  await pause(220);
+}
 const bodyProbe = (await readProbe(vpage))?.probe;
 if (bodyProbe?.screen?.heart) {
-  await setExplode(vpage, 60);
   await clickUntilSelected(vpage, bodyProbe.screen.heart);
   await pause(1200);
 }

@@ -1,0 +1,47 @@
+{
+  "base": "http://localhost:5175",
+  "steps": [
+    {
+      "step": "拆解读数（可见网格数）",
+      "detail": 734
+    },
+    {
+      "step": "器官页 brain 可见网格数",
+      "detail": 169
+    },
+    {
+      "step": "器官页 heart 可见网格数",
+      "detail": 4
+    },
+    {
+      "step": "器官页 spleen 可见网格数",
+      "detail": 1
+    },
+    {
+      "step": "移动端视口检查",
+      "detail": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "sheet": "closed"
+      }
+    }
+  ],
+  "shots": [
+    "01-cover",
+    "02-body",
+    "03-explode-25",
+    "04-explode-100",
+    "05-system-nervous",
+    "06-system-cardiovascular",
+    "07-system-lymphatic",
+    "08-organ-brain",
+    "09-organ-heart",
+    "10-organ-spleen",
+    "11-cell-neuron",
+    "12-cell-leukocyte",
+    "13-about",
+    "14-mobile-390x844"
+  ],
+  "video": "page@9947641305188c1dab0f1699810e6e38.webm",
+  "finishedAt": "2026-10-15T17:05:54.079Z"
+}

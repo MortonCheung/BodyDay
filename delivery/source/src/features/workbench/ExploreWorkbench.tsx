@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { CellStage, FullBodyStage } from '../../three/lazyStages';
 import { useStageState } from '../../three/useStageState';
 import { StageBoundary } from '../../components/StageBoundary';
@@ -8,7 +7,6 @@ import { routeForEntity, ROUTES } from '../../app/routes';
 import type { ResolvedView } from '../../app/resolveView';
 import {
   ENTITY_STRUCTURE,
-  FOREGROUND_STRUCTURE_IDS,
   describeStructure,
   type StructureHit,
   type StructureInfo,
@@ -18,7 +16,6 @@ import {
   ENTITY_MAP,
   RELATION_TYPE_LABEL,
   SCALE_MAP,
-  SYSTEMS,
   getChildren,
   getEntity,
   getSystem,
@@ -44,8 +41,6 @@ import './workbench.css';
  * 2. 路由不拆分组件树 —— 所有探索页面共用同一个组件实例，场景不会被重新挂载；
  * 3. 选中是一段可回退的层级栈 —— 「返回上一级」回到上一次点选，而不是清空一切。
  */
-
-const FOREGROUND_SET = new Set(FOREGROUND_STRUCTURE_IDS);
 
 /** 一次点选在层级栈里的记录 */
 interface BodySelection {
@@ -171,8 +166,10 @@ function buildModel(view: ResolvedView): WorkbenchModel {
 /** 关系语义 → 是否可以当作「继续深入」的入口（不编造、不使用兜底关系） */
 const DRILLABLE_TYPES = new Set(['extends_to', 'part_of', 'functional']);
 
+/** 滚轮每格推进的拆解量：约 14 格走满 0 → 1，手感既连续又不至于太慢 */
+const EXPLODE_WHEEL_STEP = 0.07;
+
 export function ExploreWorkbench({ view }: { view: ResolvedView }) {
-  const navigate = useNavigate();
   const { reportProgress, reportReady } = useStartupActions();
 
   const model = useMemo(() => buildModel(view), [view.path]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -229,14 +226,18 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
 
   /* 取景目标：当前选中优先，其次本页入场结构 */
   const focusTargetId = current?.targetId ?? model.entryStructureId;
-  const isolate = current ? FOREGROUND_SET.has(current.targetId) : model.entryIsolate;
+  /**
+   * 页面级隔离只在器官页生效：那一页的语义就是「只观察这一个器官」。
+   * 其余页面（含人体总览）选中结构时**只淡化**其它结构，保留完整人体的空间上下文。
+   */
+  const isolateStructureId = model.entryIsolate ? model.entryStructureId : null;
 
   useEffect(() => {
     devState.current.view = {
       kind: view.kind,
       path: view.path,
       focusTargetId,
-      isolate,
+      isolateStructureId,
       explode,
       pageEntityId: model.entity?.id ?? null,
     };
@@ -246,7 +247,7 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
     view.kind,
     view.path,
     focusTargetId,
-    isolate,
+    isolateStructureId,
     explode,
     model.entity,
     current?.info.name,
@@ -276,6 +277,15 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
 
   const goBackOne = useCallback(() => setHistory((prev) => prev.slice(0, -1)), []);
 
+  /**
+   * 滚轮拆解：每格推进/回退一个固定步长，钳制在 [0,1]。
+   * 只在未选中结构时由舞台调用（选中后滚轮用于观察当前结构）。
+   */
+  const handleExplodeWheel = useCallback((direction: 1 | -1) => {
+    setExplode((value) => Math.min(1, Math.max(0, value + direction * EXPLODE_WHEEL_STEP)));
+  }, []);
+
+  /** 取消选中：回到选中前的视角，而不是页面的默认取景 */
   const resetView = useCallback(() => {
     if (model.isCell) {
       selectEntity(null);
@@ -284,8 +294,6 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
     }
     setHistory([]);
     setHovered(null);
-    setFocusNonce((n) => n + 1);
-    setResetNonce((n) => n + 1);
   }, [model.isCell, selectEntity, requestReset]);
 
   useEffect(() => {
@@ -328,9 +336,16 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   const subjectEntityId = selectedEntity?.id ?? model.entity?.id;
 
   const relations = useMemo<KnowledgeRelation[]>(
-    () => (subjectEntityId ? relationsOf(subjectEntityId).slice(0, 6) : []),
+    () => (subjectEntityId ? relationsOf(subjectEntityId).slice(0, 3) : []),
     [subjectEntityId],
   );
+
+  /** 主体所属系统（用于「所属系统」一行，不引入任何新的医学内容） */
+  const subjectSystem = useMemo(() => {
+    const subject = selectedEntity ?? model.entity;
+    const parent = subject?.parentId ? ENTITY_MAP[subject.parentId] : undefined;
+    return parent?.nameZh ?? model.system?.nameZh ?? null;
+  }, [selectedEntity, model.entity, model.system]);
 
   /** 继续深入：只走真实登记的关系，并且目标页面必须真实存在 */
   const drill = useMemo<DrillLink[]>(() => {
@@ -391,42 +406,6 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
     };
   }, [model.entity, view.path]);
 
-  const quickLinks = useMemo(
-    () => [
-      { label: '人体', to: ROUTES.body, active: model.scale === 'body' },
-      ...SYSTEMS.filter((system) => system.open && system.id !== 'regional-anatomy').map(
-        (system) => ({
-          label: system.nameZh,
-          to: ROUTES.system(system.id),
-          active: model.system?.id === system.id,
-        }),
-      ),
-    ],
-    [model.scale, model.system],
-  );
-
-  const navigateScale = useCallback(
-    (scale: Scale) => {
-      if (scale === model.scale) return;
-      if (scale === 'body') {
-        navigate(ROUTES.body);
-        return;
-      }
-      if (scale === 'system') {
-        const systemId = model.system?.id ?? 'nervous-system';
-        navigate(ROUTES.system(systemId));
-        return;
-      }
-      if (scale === 'organ') {
-        const organId = MODEL_ORGAN_FALLBACK(model.entity);
-        navigate(ROUTES.organ(organId));
-        return;
-      }
-      navigate(ROUTES.cell('neuron'));
-    },
-    [model.scale, model.system, model.entity, navigate],
-  );
-
   const cellParts = useMemo(
     () => (model.isCell && model.entity ? getChildren(model.entity.id) : null),
     [model.isCell, model.entity],
@@ -453,7 +432,8 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
                 onHoverStructure={handleHover}
                 focusNonce={focusNonce}
                 resetNonce={resetNonce}
-                isolate={isolate}
+                onExplodeWheel={handleExplodeWheel}
+                isolateStructureId={isolateStructureId}
                 onlySystemId={model.onlySystemId}
                 onReady={handleReady}
                 onProbe={handleProbe}
@@ -474,17 +454,6 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
                 {hovered.system ? ` · ${hovered.system}` : ''}
               </span>
             ) : null}
-          </div>
-
-          <div className="bd-wb-stage__actions">
-            {canGoBack ? (
-              <button type="button" className="bd-button bd-button--sm" onClick={goBackOne}>
-                返回上一级
-              </button>
-            ) : null}
-            <button type="button" className="bd-button bd-button--sm" onClick={resetView}>
-              {current ? '取消选中' : '复位视角'}
-            </button>
           </div>
 
           <div className="bd-wb-stage__bottom">
@@ -508,7 +477,11 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
             )}
 
             <span className="bd-caption bd-wb-stage__hint bd-desktop-only">
-              拖动旋转 · 滚轮缩放 · 点击结构选中 · Esc 取消
+              {model.isCell
+                ? '拖动旋转 · 滚轮缩放 · 点击部件查看'
+                : current
+                  ? '滚轮深入观察 · 拖动旋转 · 点空白或 Esc 返回'
+                  : '滚轮拆解/组装 · 拖动旋转 · 点击结构选中'}
             </span>
 
             <button
@@ -523,19 +496,15 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
       </div>
 
       <KnowledgePaper
-        scale={model.scale}
-        onNavigateScale={navigateScale}
         entity={model.entity}
         selection={model.isCell ? null : current?.info ?? null}
         selectedEntity={selectedEntity}
         localSelection={localSelection}
+        subjectSystem={subjectSystem}
         relations={relations}
         drill={drill}
         ascend={ascend}
-        quickLinks={quickLinks}
-        subjectLabel={model.subjectLabel}
         emptyHint={model.emptyHint}
-        onClearSelection={resetView}
         canGoBack={canGoBack}
         onBack={goBackOne}
         sheetOpen={sheetOpen}
@@ -543,12 +512,4 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
       />
     </div>
   );
-}
-
-/** 从当前实体推断「器官」层的落点（没有更具体的器官时就进大脑，与关系数据一致） */
-function MODEL_ORGAN_FALLBACK(entity: BodyEntity | undefined): string {
-  if (entity?.kind === 'organ' && entity.atlasStructureId) return entity.id;
-  const parent = entity?.parentId ? ENTITY_MAP[entity.parentId] : undefined;
-  if (parent?.kind === 'organ') return parent.id;
-  return 'brain';
 }

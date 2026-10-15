@@ -60,18 +60,66 @@ export const SHELL_STRUCTURE_ID = ATLAS_STRUCTURE_IDS.bodyShell;
 /**
  * 结构部分的统一色板（按解剖系统）。
  *
- * 原始资产里「体表 / 骨骼 / 肌肉」默认使用同一组偏冷的青色，放在暖白纸面上会明显跳色；
- * 这里把它们统一到暖调（象牙 ↔ 陶土），让中央的模型与纸面属于同一套视觉语言。
- * 内脏、管道、神经等**保留资产自带的真实解剖配色**——那些颜色本身就承担了辨识功能。
+ * 目标是一具**中性化、可公开展示**的人体：暖白纸面上的一尊浅色解剖模型，
+ * 而不是红褐色色块或发光体。皮肤 / 骨骼 / 肌肉统一到低饱和的暖灰家族，
+ * 三者靠明度差区分（骨骼最亮、皮肤居中、肌肉略深），
+ * 内脏、管道、神经等**保留资产自带的真实解剖配色**——那些颜色本身承担辨识功能。
  *
  * 这是一次显式的外观修改（属于 CC BY-SA 4.0 要求「标明修改」的部分），
- * 「关于 · 数据与方法」页已如实说明。
+ * 「关于 · 数据与方法」页与 `public/models/ANATOMY_LICENSE.txt` 已如实说明。
  */
 export const STRUCTURE_TINT: Record<string, string> = {
-  'regional-anatomy': '#dcc7b6',
-  skeletal: '#d9c6ae',
-  muscular: '#c39a84',
+  'regional-anatomy': '#d5cec2',
+  skeletal: '#e9e3d9',
+  muscular: '#bfb2a4',
 };
+
+/**
+ * 公开展示时默认隐去的解剖系统。
+ *
+ * 作品面向课堂与公开评审，默认展示的是**男女共有的结构**；
+ * 生殖系统在本轮不作为展示内容（既不提供专题，也不出现在默认人体里）。
+ */
+export const PUBLIC_DISPLAY_EXCLUDED_SYSTEMS: readonly string[] = ['reproductive'];
+
+/**
+ * 公开展示时默认隐去的体表外壳区域（按真实节点名匹配）。
+ *
+ * 这些名字来自真实 GLB 的节点名核对（见 `docs/v2/06_PUBLIC_PRESENTATION.md`）：
+ * `body-shell__Urogenital region.l/.r` 是体表上构成外生殖器的那一块，
+ * `body-shell__Pubic hairs` 是同一区域的外观伴随几何。
+ * **只隐藏 reproductive 系统并不够** —— 体表外壳上仍保留其形态，因此必须一并处理。
+ * 隐藏后该处露出的是真实的肌肉与骨盆结构，属于解剖切口式观感，不是空白或残缺。
+ */
+export const PUBLIC_DISPLAY_EXCLUDED_SHELL_REGIONS: readonly string[] = [
+  'Urogenital region',
+  'Pubic hairs',
+];
+
+/**
+ * 把节点名归一化后再比较。
+ *
+ * 必须这么做，因为 three 的 GLTFLoader 会调用 `PropertyBinding.sanitizeNodeName`
+ * 清洗名字：空格与点都会变成下划线。也就是说 GLB 里的
+ * `body-shell__Urogenital region.l` 到了运行时是 `body-shell__Urogenital_region_l`。
+ * 只按原始名字做子串匹配会**静默失效**（这正是首轮核对时抓到的问题）。
+ */
+function normalizeName(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * 判断一个网格是否属于「公开展示时应当隐去」的集合。
+ *
+ * 纯函数：只看该网格的真实系统 ID 与真实节点名（已按上面的规则归一化），不做任何位置猜测。
+ */
+export function isPublicDisplayExcluded(systemId: string | null, nodeName: string): boolean {
+  if (systemId && PUBLIC_DISPLAY_EXCLUDED_SYSTEMS.includes(systemId)) return true;
+  const normalized = normalizeName(nodeName);
+  return PUBLIC_DISPLAY_EXCLUDED_SHELL_REGIONS.some((region) =>
+    normalized.includes(normalizeName(region)),
+  );
+}
 
 /** 外壳完全隐去所需的进度：`body-shell` 在 [0, 0.4] 内由不透明变为隐去。 */
 export const SHELL_FADE_END = 0.4;

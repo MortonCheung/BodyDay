@@ -14,6 +14,7 @@ import {
   computeBodyAxis,
   computeExplosionOffsets,
   explosionMaxRadius,
+  isPublicDisplayExcluded,
   resolveGroupMembers,
   shellOpacity,
   type ExplosionGroup,
@@ -37,12 +38,27 @@ const PROBE_IDS = ['heart', 'cerebrum', 'cerebellum', 'brainstem', 'spleen'] as 
 
 const ZERO_OFFSET: [number, number, number] = [0, 0, 0];
 
-/** 悬停：真实材质上的暖色自发光，保留原有彩绘，不出现「暗色剪影」。 */
-const HOVER_EMISSIVE = new THREE.Color('#c65a2e');
-const HOVER_INTENSITY = 0.3;
-/** 选中：比悬停更强的自发光，叠加「聚焦 + 隔离」，与悬停一眼可辨。 */
-const SELECTED_EMISSIVE = new THREE.Color('#8f3a1c');
-const SELECTED_INTENSITY = 0.62;
+/**
+ * 点击判定阈值（像素）。
+ *
+ * three/R3F 在指针抬起时会派发 click，即使中途拖动了几百像素去旋转模型。
+ * 没有这道阈值，「转动人体」会被当成「点到了体表」，用户一转模型就只剩皮肤。
+ */
+const CLICK_MOVE_SLOP = 6;
+
+/**
+ * 悬停：真实材质上的**中性暖白**自发光，保留原有彩绘，不出现「暗色剪影」，
+ * 也不使用大面积深红色高亮（那会把解剖模型变成警示图）。
+ */
+const HOVER_EMISSIVE = new THREE.Color('#fff3e2');
+const HOVER_INTENSITY = 0.2;
+/** 选中：比悬停更亮的中性光，叠加「聚焦 + 其余结构淡化」，与悬停一眼可辨。
+    强度刻意压得较低：过高会把器官本身的原色冲成粉白，反而丢失解剖辨识信息。 */
+const SELECTED_EMISSIVE = new THREE.Color('#fff8ec');
+const SELECTED_INTENSITY = 0.34;
+
+/** 聚焦取景的留白系数：选中的结构约占画面一半，其余（已淡化的）人体留在画面里提供空间上下文 */
+const FOCUS_PADDING = 2.8;
 
 type TintableMaterial = THREE.Material & {
   color?: THREE.Color;
@@ -86,8 +102,13 @@ export interface FullBodyProbe {
    * 坐标由当前相机矩阵实时投影得到，取不到投影（在背后）时为 null。
    */
   screen: Record<string, { x: number; y: number } | null>;
-  /** 镜头真实位置与到焦点距离：用于判断取景是否随 progress 变化 */
-  camera: { position: [number, number, number]; distance: number };
+  /** 镜头真实位置、观察目标与到焦点距离：用于判断取景是否随 progress 变化 */
+  camera: {
+    position: [number, number, number];
+    /** OrbitControls 的观察目标：验收「取消选中后是否回到原视角」必须比对它 */
+    target: [number, number, number];
+    distance: number;
+  };
   /** 当前全部可见网格数（外壳隐去与隔离生效的读数） */
   visibleMeshes: number;
   /** 外壳材质的实际不透明度（0 表示已隐去） */
@@ -114,8 +135,16 @@ export interface FullBodyStageProps {
   focusNonce: number;
   /** 递增即把镜头复位到适配当前拆解程度的机位 */
   resetNonce: number;
-  /** 隔离：只显示选中结构 */
-  isolate: boolean;
+  /**
+   * 滚轮驱动拆解：**只有未选中任何结构时**才接管滚轮。
+   * 选中结构后滚轮交还给 OrbitControls 做缩放，避免两种行为互相打架。
+   */
+  onExplodeWheel?: (direction: 1 | -1) => void;
+  /**
+   * 页面级隔离目标（器官页使用）：其余结构整体收起。
+   * 为 null 时，选中结构只会让其余结构**淡化**，保留完整人体的空间上下文。
+   */
+  isolateStructureId?: string | null;
   /** 只显示该解剖系统（null = 全部显示） */
   onlySystemId?: string | null;
   /** 装配完成 + 首个有效帧后触发一次 */
@@ -140,6 +169,8 @@ interface ModelIndex {
   /** 被判定为体表外壳的网格 */
   shellMeshes: THREE.Mesh[];
   shellSet: Set<THREE.Mesh>;
+  /** 公开展示时应当隐去的网格（生殖系统 + 体表上的外生殖器区域） */
+  excludedSet: Set<THREE.Mesh>;
   basePositions: Map<THREE.Mesh, THREE.Vector3>;
   baseBoxes: Map<THREE.Mesh, THREE.Box3>;
   /** 每组当前的位移向量（由 applyExplosion 写入） */
@@ -155,6 +186,11 @@ interface ModelIndex {
   bodyRadius: number;
   /** 每个材质的高亮基准值，用于还原 */
   emissiveBase: Map<TintableMaterial, { color: THREE.Color; intensity: number }>;
+  /** 每个材质的基准外观（不透明度 / 透明开关 / 写入深度），用于「淡化」与还原 */
+  baseMaterialState: Map<
+    TintableMaterial,
+    { opacity: number; transparent: boolean; depthWrite: boolean }
+  >;
   stats: Omit<FullBodyStats, 'loadMs'>;
 }
 
@@ -266,6 +302,28 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     }
   }
 
+  /**
+   * 记录每个材质的基准外观。
+   *
+   * 「淡化」是在同一份克隆材质上改 opacity / transparent / depthWrite，
+   * 因此必须先记下基准值，退出选中时才能逐项、精确地还原
+   * （不是把所有材质粗暴设回 1，否则会抹掉资产原本的半透明部件）。
+   */
+  const baseMaterialState = new Map<
+    TintableMaterial,
+    { opacity: number; transparent: boolean; depthWrite: boolean }
+  >();
+  for (const mesh of meshes) {
+    for (const material of materialsOf(mesh)) {
+      if (baseMaterialState.has(material)) continue;
+      baseMaterialState.set(material, {
+        opacity: material.opacity ?? 1,
+        transparent: Boolean(material.transparent),
+        depthWrite: material.depthWrite !== false,
+      });
+    }
+  }
+
   const parents = buildParentMap(model);
 
   const meshGroup = new Map<THREE.Mesh, string>();
@@ -273,6 +331,7 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
   const basePositions = new Map<THREE.Mesh, THREE.Vector3>();
   const baseBoxes = new Map<THREE.Mesh, THREE.Box3>();
   const shellMeshes: THREE.Mesh[] = [];
+  const excludedSet = new Set<THREE.Mesh>();
   const bounds = new THREE.Box3();
   const grouped = new Map<string, THREE.Box3>();
   const groupSystem = new Map<string, string | null>();
@@ -283,6 +342,8 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     baseBoxes.set(mesh, box);
     bounds.union(box);
     if (belongsTo(mesh, parents, SHELL_STRUCTURE_ID)) shellMeshes.push(mesh);
+    // 公开展示过滤：默认不出现生殖系统，以及体表上构成外生殖器的那块几何
+    if (isPublicDisplayExcluded(meshSystem.get(mesh) ?? null, mesh.name)) excludedSet.add(mesh);
     const own = anatomyIdOf(mesh) ?? `__mesh_${meshes.indexOf(mesh)}`;
     const groupId = movableGroupOf(own, parents, hasGeometry);
     meshGroup.set(mesh, groupId);
@@ -333,6 +394,7 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     meshSystem,
     shellMeshes,
     shellSet: new Set(shellMeshes),
+    excludedSet,
     basePositions,
     baseBoxes,
     currentOffsets: new Map(),
@@ -343,6 +405,7 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     maxRadius: explosionMaxRadius(bounds),
     bodyRadius,
     emissiveBase: new Map(),
+    baseMaterialState,
     stats: {
       nodeCount,
       meshCount: meshes.length,
@@ -413,51 +476,92 @@ function currentBox(index: ModelIndex, id: string): THREE.Box3 | null {
 }
 
 /**
- * 外壳与可见性。
+ * 选中结构以外的一切都降到这个不透明度。
  *
- * 拆解必须「先去掉皮肤」才能看见内部，所以体表外壳随进度渐进隐去；
- * 到了完全隐去的阈值后直接把 236 个外壳网格设为不可见——既省掉这部分绘制，
- * 也避免一个几乎全透明的壳体继续截住射线、让人点不中里面的器官。
- * 若用户正好选中了体表本身（隔离目标就是外壳），则保持不透明，否则会看到一片空白。
+ * 「淡化」而不是「隐藏」：保留完整人体的空间上下文，让用户知道选中的器官
+ * 在身体里的什么位置。0.16 是在 0.12（纯幽灵）与 0.25（仍偏实）之间取的折中值，
+ * 以实际截图判定为准。外壳比内部结构再低一档（见 applySceneLook），
+ * 因为它体积最大、最容易糊住画面。
  */
-function applyVisibility(
+const DIM_OPACITY = 0.16;
+/** 外壳被淡化或渐隐时的不透明度上限：比内部结构更低，避免「幽灵皮肤」糊住画面 */
+const SHELL_DIM_OPACITY = 0.1;
+/** 不透明度高于这个值时，网格仍然可以接收点击 */
+const RAYCAST_MIN_OPACITY = 0.3;
+
+/**
+ * 按基准值设置某个网格的不透明度。
+ *
+ * 三个必须同时处理的量：`opacity`（实际透明度）、`transparent`（是否进入透明队列）、
+ * `depthWrite`（是否写深度）。淡化时关掉 depthWrite，否则半透明结构会互相遮挡出脏面。
+ * `transparent` 只在**第一次**淡化时翻转一次并触发一次着色器重编译，
+ * 之后不再反复触发——否则每次选中都会重编上百个材质。
+ */
+function setMeshOpacity(index: ModelIndex, mesh: THREE.Mesh, opacity: number): void {
+  const opaque = opacity >= 0.999;
+  for (const material of materialsOf(mesh)) {
+    const base = index.baseMaterialState.get(material);
+    if (!base) continue;
+    const effective = opaque ? base.opacity : base.opacity * opacity;
+    if (material.opacity !== effective) material.opacity = effective;
+    if (!opaque && !material.transparent) {
+      material.transparent = true;
+      material.needsUpdate = true;
+    }
+    material.depthWrite = opaque ? base.depthWrite : false;
+  }
+}
+
+/**
+ * 场景外观总开关：位移后的可见性、淡化、外壳渐隐与射线可用性一次算清。
+ *
+ * - `isolateId`：页面级隔离（器官页把其余结构整体收起来）——保留隐藏语义；
+ * - `selectedId`：用户点选——**只淡化**其余结构，不隐藏，保留空间上下文；
+ * - 外壳不透明度由拆解进度驱动，被淡化时再取更低的一档；
+ * - 凡是不透明度低到看不清的网格（含被隐去的壳体）都移出第 0 层，
+ *   避免「看不见的几何继续挡住点击」。
+ */
+function applySceneLook(
   index: ModelIndex,
   isolateId: string | null,
+  selectedId: string | null,
   onlySystemId: string | null,
   progress: number,
-): number {
+): { shellOpacity: number; visibleMeshes: number } {
   const isolateTargetsShell = isolateId === SHELL_STRUCTURE_ID;
-  const opacity = isolateTargetsShell ? 1 : shellOpacity(progress);
+  const shellFade = isolateTargetsShell ? 1 : shellOpacity(progress);
   const hideShell = !isolateTargetsShell && clampProgress(progress) >= SHELL_FADE_END;
-
-  for (const mesh of index.shellMeshes) {
-    for (const material of materialsOf(mesh)) {
-      // 只在「是否透明」真正翻转时触发重编译：每帧改 needsUpdate 会让 236 个网格各自重编着色器
-      const transparent = opacity < 1;
-      if (material.transparent !== transparent) {
-        material.transparent = transparent;
-        material.needsUpdate = true;
-      }
-      material.opacity = opacity;
-      material.depthWrite = opacity >= 0.99;
-    }
-  }
+  let visibleMeshes = 0;
 
   for (const mesh of index.meshes) {
-    const bySystem = !onlySystemId || index.meshSystem.get(mesh) === onlySystemId;
-    const byIsolate = !isolateId || belongsTo(mesh, index.parents, isolateId);
-    const byShell = !(hideShell && index.shellSet.has(mesh));
-    const visible = bySystem && byIsolate && byShell;
-    mesh.visible = visible;
-    /**
-     * 同时把不可见的网格移出第 0 层：three 的射线检测会读 `layers`，
-     * 仅靠 `visible=false` 并不能保证「看不见的壳体不再挡住点击」。
-     * 这一步是「拆解之后仍然点得中里面的器官」的直接前提。
-     */
-    if (visible) mesh.layers.enable(0);
+    const isShell = index.shellSet.has(mesh);
+    const hidden =
+      index.excludedSet.has(mesh) ||
+      (onlySystemId ? index.meshSystem.get(mesh) !== onlySystemId : false) ||
+      (isolateId ? !belongsTo(mesh, index.parents, isolateId) : false) ||
+      (hideShell && isShell);
+
+    if (hidden) {
+      mesh.visible = false;
+      mesh.layers.disable(0);
+      continue;
+    }
+
+    mesh.visible = true;
+    visibleMeshes += 1;
+
+    const dimmed = selectedId !== null && !belongsTo(mesh, index.parents, selectedId);
+    let opacity = isShell ? shellFade : 1;
+    if (dimmed) opacity = Math.min(opacity, isShell ? SHELL_DIM_OPACITY : DIM_OPACITY);
+    setMeshOpacity(index, mesh, opacity);
+
+    // 几乎透明（或被淡化）的网格不再拦截点击，让用户点得到里面的结构
+    const raycastable = opacity >= RAYCAST_MIN_OPACITY && (!dimmed || !isShell);
+    if (raycastable) mesh.layers.enable(0);
     else mesh.layers.disable(0);
   }
-  return opacity;
+
+  return { shellOpacity: shellFade, visibleMeshes };
 }
 
 /**
@@ -494,7 +598,13 @@ function applyHighlight(index: ModelIndex, hoveredId: string | null, selectedId:
   if (hoveredId && hoveredId !== selectedId) paint(hoveredId, HOVER_EMISSIVE, HOVER_INTENSITY);
 }
 
-type OrbitLike = { target: THREE.Vector3; update: () => void };
+type OrbitLike = {
+  target: THREE.Vector3;
+  update: () => void;
+  enableDamping?: boolean;
+  addEventListener?: (type: 'start' | 'end' | 'change', listener: () => void) => void;
+  removeEventListener?: (type: 'start' | 'end' | 'change', listener: () => void) => void;
+};
 
 interface FramingGoal {
   position: THREE.Vector3;
@@ -552,7 +662,8 @@ interface ModelRigProps {
   startedAt: number;
   progress: number;
   selectedStructureId: string | null;
-  isolate: boolean;
+  /** 页面级隔离目标（器官页用）：其余结构整体收起；为 null 时只做淡化 */
+  isolateStructureId: string | null;
   onlySystemId: string | null;
   focusRequest: { id: string; nonce: number } | null;
   resetNonce: number;
@@ -560,13 +671,15 @@ interface ModelRigProps {
   onHoverStructure?: (hit: StructureHit | null) => void;
   onReady?: (stats: FullBodyStats) => void;
   onProbe?: (probe: FullBodyProbe) => void;
+  /** 判定这次「点击」是否其实是一次拖动（拖动旋转不应触发选中） */
+  wasDrag: (clientX: number, clientY: number) => boolean;
 }
 
 function ModelRig({
   startedAt,
   progress,
   selectedStructureId,
-  isolate,
+  isolateStructureId,
   onlySystemId,
   focusRequest,
   resetNonce,
@@ -574,6 +687,7 @@ function ModelRig({
   onHoverStructure,
   onReady,
   onProbe,
+  wasDrag,
 }: ModelRigProps) {
   const gltf = useGLTF(FULL_BODY_MODEL_URL);
   // 克隆一份再改：GLTFLoader 的缓存场景是共享的，直接改会污染其它消费者
@@ -599,8 +713,34 @@ function ModelRig({
   });
 
   const goalRef = useRef<FramingGoal | null>(null);
+  /** 选中前视角的快照：第一次聚焦前采集，取消选中时用来原路退回 */
+  const viewSnapshot = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  /** 上一次的选中目标：用于识别「有选中 → 无选中」的跃迁 */
+  const previousSelected = useRef<string | null>(null);
   const visibleCount = useRef(0);
   const shellOpacityValue = useRef(1);
+
+  /**
+   * 中断 OrbitControls 的阻尼惯性，并把相机的控制权交给程序化取景。
+   *
+   * 这是「镜头不会和手抢控制权」的关键：用户刚拖完，OrbitControls 内部还留着惯性，
+   * `controls.update()` 每帧都会用惯性重新写回相机位置，把我们的平滑取景整段吃掉
+   * （实测症状：点空白后镜头停在原地不动，而第二次点击又能恢复）。
+   * 做法是把阻尼临时关掉跑一次 `update()`——three 在这个分支里会把惯性清零——再打开。
+   */
+  const stopCameraMomentum = () => {
+    const orbit = controls;
+    if (!orbit || orbit.enableDamping === false) return;
+    orbit.enableDamping = false;
+    orbit.update();
+    orbit.enableDamping = true;
+  };
+
+  /** 统一入口：任何程序化取景都先中断惯性，然后写下目标机位 */
+  const setCameraGoal = (goal: FramingGoal | null) => {
+    stopCameraMomentum();
+    goalRef.current = goal;
+  };
 
   /* 装配完成：设定合理的 near/far 与初始机位（尺度由真实包围盒决定，不写死数值） */
   useEffect(() => {
@@ -615,37 +755,76 @@ function ModelRig({
       controls.target.copy(center);
       controls.update();
     }
-    goalRef.current = null;
+    setCameraGoal(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
-  /* 位移 + 可见性 + 外壳淡化：三者一起重算，避免互相覆盖 */
+  /* 位移 + 可见性 + 淡化 + 外壳渐隐：一次算清，避免互相覆盖 */
   useLayoutEffect(() => {
     applyExplosion(index, clampProgress(progress));
-    const isolateId = isolate ? selectedStructureId : null;
-    shellOpacityValue.current = applyVisibility(index, isolateId, onlySystemId, progress);
-    visibleCount.current = index.meshes.reduce((total, mesh) => total + (mesh.visible ? 1 : 0), 0);
-  }, [index, progress, isolate, selectedStructureId, onlySystemId]);
+    const look = applySceneLook(
+      index,
+      isolateStructureId,
+      selectedStructureId,
+      onlySystemId,
+      progress,
+    );
+    shellOpacityValue.current = look.shellOpacity;
+    visibleCount.current = look.visibleMeshes;
+  }, [index, progress, isolateStructureId, selectedStructureId, onlySystemId]);
 
   /* 高亮：选中 + 悬停 */
   useLayoutEffect(() => {
     applyHighlight(index, hoveredId, selectedStructureId);
   }, [index, hoveredId, selectedStructureId]);
 
-  /* 聚焦：基于真实几何包围盒（位移后的），不使用任何元数据落点。
-     依赖里同时含 id：点选换到另一个结构时，nonce 不变也必须重新取景。 */
+  /**
+   * 聚焦：基于真实几何包围盒（位移后的），不使用任何元数据落点。
+   * 依赖里同时含 id：点选换到另一个结构时，nonce 不变也必须重新取景。
+   *
+   * 第一次聚焦前会把**用户当前的相机位置与观察目标**压栈（快照），
+   * 之后无论深入到第几级都不覆盖它——这样「取消选中」才能回到用户自己的视角，
+   * 而不是回到某个写死的默认机位。
+   */
   useEffect(() => {
     if (!focusRequest) return;
     const box = currentBox(index, focusRequest.id);
     if (!box) return;
-    goalRef.current = framingGoal(index, camera, controls, 2.1, box);
+    if (!viewSnapshot.current) {
+      viewSnapshot.current = {
+        position: camera.position.clone(),
+        target: (controls?.target ?? index.bounds.getCenter(new THREE.Vector3())).clone(),
+      };
+    }
+    setCameraGoal(framingGoal(index, camera, controls, FOCUS_PADDING, box));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest?.id, focusRequest?.nonce]);
+
+  /**
+   * 恢复选中前的视角：由**舞台自己**识别「有选中 → 无选中」这一次状态跃迁。
+   *
+   * 最初的做法是由外层递增一个 `restoreNonce` 来通知，结果因为跨组件的更新顺序
+   * 不可靠（第一次点空白时快照还没轮到被消费），出现「点空白镜头不动、点第二次才回来」
+   * 的怪现象。改成本地跃迁判断后，点空白、Esc、逐级返回三种出口都走同一条路径。
+   */
+  useEffect(() => {
+    const previous = previousSelected.current;
+    previousSelected.current = selectedStructureId;
+    if (!previous || selectedStructureId) return;
+    const snapshot = viewSnapshot.current;
+    viewSnapshot.current = null;
+    if (!snapshot) return;
+    setCameraGoal({
+      position: snapshot.position.clone(),
+      target: snapshot.target.clone(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStructureId]);
 
   /* 拆解程度变化 / 复位：重新取景，保证拆开的整体始终在画面里 */
   useEffect(() => {
     if (focusRequest) return; // 已聚焦或隔离时不抢镜头
-    goalRef.current = framingGoal(index, camera, controls, 1.75);
+    setCameraGoal(framingGoal(index, camera, controls, 1.75));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, progress, resetNonce]);
 
@@ -653,7 +832,12 @@ function ModelRig({
   useFrame((_, delta) => {
     const goal = goalRef.current;
     if (!goal) return;
-    const k = 1 - Math.pow(0.002, Math.min(delta, 0.1));
+    /**
+     * 收敛速度按时间步计算，并对 delta 设一个较宽松的上限（0.4s）。
+     * 上限太小会在低帧率设备上把动画拖成好几秒——软件渲染的验收环境实测就是这样
+     * （每秒 1–3 帧时，取景要 5 秒以上才到位）；放大到 0.4s 后，低帧率下也能在 1–2 帧内到位。
+     */
+    const k = 1 - Math.pow(0.002, Math.min(delta, 0.4));
     camera.position.lerp(goal.position, k);
     if (controls) controls.target.lerp(goal.target, k);
     controls?.update();
@@ -725,6 +909,7 @@ function ModelRig({
         screen,
         camera: {
           position: [camera.position.x, camera.position.y, camera.position.z],
+          target: [focusPoint.x, focusPoint.y, focusPoint.z],
           distance: camera.position.distanceTo(focusPoint),
         },
         visibleMeshes: visibleCount.current,
@@ -735,7 +920,28 @@ function ModelRig({
     emitProbe.current();
     // 隔离 / 系统过滤 / 拆解程度都会改变「可见网格数」，必须一起作为依赖，
     // 否则探针会停留在上一次的读数（这正是复查时抓到的过期读数问题）。
-  }, [index, progress, controls, camera, size, isolate, selectedStructureId, onlySystemId]);
+  }, [index, progress, controls, camera, size, isolateStructureId, selectedStructureId, onlySystemId]);
+
+  /**
+   * 与 OrbitControls 的协作（这是「手动拖动」与「自动取景」之间的握手）。
+   *
+   * - `start`：用户一开始拖动就放弃当前的自动取景目标，避免镜头和手互相抢控制权；
+   * - `end`：交互结束后补报一次真实读数——否则验收侧读到的相机位置会停在拖动前
+   *   （实测踩到：横向拖动明明转了模型，读数却一动不动）。
+   */
+  useEffect(() => {
+    if (!controls?.addEventListener) return undefined;
+    const handleStart = () => {
+      goalRef.current = null;
+    };
+    const handleEnd = () => emitProbe.current();
+    controls.addEventListener('start', handleStart);
+    controls.addEventListener('end', handleEnd);
+    return () => {
+      controls.removeEventListener?.('start', handleStart);
+      controls.removeEventListener?.('end', handleEnd);
+    };
+  }, [controls]);
 
   const hitOf = (object: THREE.Object3D): StructureHit | null =>
     buildStructureHit(object, index.parents, FOREGROUND_STRUCTURE_IDS);
@@ -758,6 +964,8 @@ function ModelRig({
   };
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    // 拖动旋转模型时，指针抬起仍会派发 click；这里按位移阈值把它排除掉
+    if (wasDrag(event.nativeEvent.clientX, event.nativeEvent.clientY)) return;
     event.stopPropagation();
     onSelectRef.current(hitOf(event.object));
   };
@@ -779,7 +987,8 @@ export function FullBodyStage({
   onHoverStructure,
   focusNonce,
   resetNonce,
-  isolate,
+  onExplodeWheel,
+  isolateStructureId = null,
   onlySystemId = null,
   onReady,
   onProbe,
@@ -787,13 +996,68 @@ export function FullBodyStage({
   ariaLabel,
   canvasKey,
 }: FullBodyStageProps) {
-  /** 舞台挂载时刻：作为「从零开始加载」的计时起点，包含 30 MB GLB 的下载与解析 */
+  /** 舞台挂载时刻：作为「从零开始加载」的计时起点，包含 31.8 MB GLB 的下载与解析 */
   const [startedAt] = useState(() => performance.now());
+
+  /**
+   * 指针按下的位置：用来区分「点击选中」与「拖动旋转」。
+   * 没有这道判断时，转动人体也会顺手选中体表——用户会看到「转一下模型就只剩皮肤」。
+   *
+   * 监听直接挂在真实的 canvas 元素上（而不是走 R3F 的 Canvas props）：
+   * 只有拿到原生事件，才能保证按下位置一定被记录，指针拖出画布时也不会丢。
+   */
+  const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!canvasEl) return undefined;
+    const rememberStart = (event: PointerEvent) => {
+      pointerStart.current = { x: event.clientX, y: event.clientY };
+    };
+    canvasEl.addEventListener('pointerdown', rememberStart, { capture: true });
+    return () => canvasEl.removeEventListener('pointerdown', rememberStart, { capture: true });
+  }, [canvasEl]);
+
+  const wasDrag = (clientX: number, clientY: number): boolean => {
+    /**
+     * 注意：这里**不能**清空 pointerStart。
+     *
+     * 同一次拖动会派发不止一次点击判定（实测一次拖动会走两次判定），
+     * 若第一次判定就把按下位置消费掉，第二次就会把这次拖动误判成点击——
+     * 于是「转一下模型」又变成了「选中体表」。按下位置只在下一次 pointerdown 时被覆盖。
+     */
+    const start = pointerStart.current;
+    return start !== null && Math.hypot(clientX - start.x, clientY - start.y) > CLICK_MOVE_SLOP;
+  };
 
   const focusRequest = useMemo(
     () => (selectedStructureId ? { id: selectedStructureId, nonce: focusNonce } : null),
     [selectedStructureId, focusNonce],
   );
+
+  /**
+   * 滚轮仲裁。
+   *
+   * 没有选中任何结构时（人体总览）：滚轮 = 拆解/组装，缩放开在此关闭，
+   * 并在 canvas 的**捕获阶段**拦下 wheel，避免它同时被 OrbitControls 当作缩放。
+   * 选中结构之后：滚轮交还给 OrbitControls（`enableZoom` 重新打开）用于观察当前结构。
+   * 监听只挂在三维画布上，右侧知识纸条的滚动完全不受影响。
+   */
+  const explodeWheelEnabled = Boolean(onExplodeWheel) && !selectedStructureId;
+  const explodeWheelRef = useRef(onExplodeWheel);
+  useEffect(() => {
+    explodeWheelRef.current = onExplodeWheel;
+  });
+  useEffect(() => {
+    if (!canvasEl || !explodeWheelEnabled) return undefined;
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      explodeWheelRef.current?.(event.deltaY > 0 ? 1 : -1);
+    };
+    canvasEl.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    return () => canvasEl.removeEventListener('wheel', handleWheel, { capture: true });
+  }, [canvasEl, explodeWheelEnabled]);
 
   return (
     <div className="bd-stage__canvas" aria-label={ariaLabel} role="group">
@@ -803,7 +1067,12 @@ export function FullBodyStage({
         dpr={[1, 1.5]}
         gl={{ antialias: false, alpha: true, powerPreference: 'high-performance' }}
         camera={{ position: [0, 0, 6], fov: 38, near: 0.05, far: 200 }}
-        onPointerMissed={() => onSelectStructure(null)}
+        onCreated={(state) => setCanvasEl(state.gl.domElement)}
+        onPointerMissed={(event) => {
+          // 在空白处的拖动同样不算「点空白取消」
+          if (wasDrag(event.clientX, event.clientY)) return;
+          onSelectStructure(null);
+        }}
       >
         <ambientLight intensity={0.78} />
         <hemisphereLight args={['#fdfbf7', '#e8e4dc', 0.5]} />
@@ -817,6 +1086,8 @@ export function FullBodyStage({
           dampingFactor={0.08}
           rotateSpeed={0.8}
           zoomSpeed={0.75}
+          /* 未选中结构时滚轮用来拆解人体，因此这里关掉原生缩放；选中后交还给缩放 */
+          enableZoom={!explodeWheelEnabled}
         />
 
         <LoadProgressReporter onProgress={onProgress} />
@@ -826,7 +1097,7 @@ export function FullBodyStage({
             startedAt={startedAt}
             progress={progress}
             selectedStructureId={selectedStructureId}
-            isolate={isolate}
+            isolateStructureId={isolateStructureId}
             onlySystemId={onlySystemId}
             focusRequest={focusRequest}
             resetNonce={resetNonce}
@@ -834,6 +1105,7 @@ export function FullBodyStage({
             onHoverStructure={onHoverStructure}
             onReady={onReady}
             onProbe={onProbe}
+            wasDrag={wasDrag}
           />
         </Suspense>
       </Canvas>
