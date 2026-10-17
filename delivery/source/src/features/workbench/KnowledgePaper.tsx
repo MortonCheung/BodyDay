@@ -92,18 +92,18 @@ export function KnowledgePaper({
         </button>
       </div>
 
-      {/* 选中的是一块没有独立科普卡片的结构时，如实说明，不编造内容 */}
+      {/* 选中的结构尚未编入科普卡片时，只给事实，不做多余解释 */}
       {selection && !selectedEntity ? (
         <section className="bd-wb-section" aria-label="当前选中">
           <span className="bd-label">当前选中</span>
           <p className="bd-body-secondary">
             {localSelection
-              ? `这是${entity?.nameZh ?? '本页主体'}内部的一块真实结构「${
-                  localSelection.partName ?? localSelection.name
-                }」。BodyDay 只为结构整体编写科普内容，不为局部细分编写。`
+              ? `${localSelection.partName ?? localSelection.name} · ${
+                  entity?.nameZh ?? '本页主体'
+                }的局部结构`
               : `${selection.name ?? '未命名结构'}${
                   selection.system ? ` · ${selection.system}` : ''
-                }。这是模型里真实存在的解剖结构，尚未建立独立科普卡片，这里不编造内容。`}
+                } · 尚未编入科普卡片`}
           </p>
         </section>
       ) : null}
@@ -164,8 +164,8 @@ export function KnowledgePaper({
 
       <section className="bd-wb-section">
         <p className="bd-wb-note">
-          三维模型为科普示意，不按真实比例。来源表、模型署名与许可见
-          <Link to={ROUTES.about}>「关于 · 数据与方法」</Link>。
+          模型为示意，不按真实比例 · 来源与许可见
+          <Link to={ROUTES.about}>「关于」</Link>
         </p>
       </section>
     </aside>

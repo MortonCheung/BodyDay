@@ -100,10 +100,8 @@ function buildModel(view: ResolvedView): WorkbenchModel {
         entryIsolate: false,
         pageTitle: system?.nameZh ?? '人体系统',
         subjectLabel: '当前系统',
-        hudNote: system
-          ? `${system.nameZh}已在人体中单独显示。点选其中任一结构即可聚焦。`
-          : '该系统的结构已在人体中单独显示。',
-        emptyHint: '点选这个系统里的任一结构，纸条会换成它的知识。',
+        hudNote: system ? `${system.nameZh} · 点选任一结构查看` : '点选任一结构查看',
+        emptyHint: '点选任一结构，这里显示它的知识与健康关联。',
       };
     }
     case 'organ': {
@@ -120,8 +118,8 @@ function buildModel(view: ResolvedView): WorkbenchModel {
         entryIsolate: true,
         pageTitle: entity?.nameZh ?? '器官',
         subjectLabel: '当前器官',
-        hudNote: `镜头已聚焦${entity?.nameZh ?? '该器官'}，其它结构暂时隐去，便于单独观察。`,
-        emptyHint: `点击这个器官上的任意位置，可以查看它内部更具体的结构。`,
+        hudNote: `${entity?.nameZh ?? '该器官'}已聚焦 · 点选局部结构查看`,
+        emptyHint: `点这个器官上的任意位置，查看它内部的结构。`,
       };
     }
     case 'cell': {
@@ -137,8 +135,8 @@ function buildModel(view: ResolvedView): WorkbenchModel {
         entryIsolate: false,
         pageTitle: entity?.nameZh ?? '细胞',
         subjectLabel: '当前细胞',
-        hudNote: '细胞模型为程序化科学示意；点选模型上的部件，纸条随之更新。',
-        emptyHint: '点选细胞模型上的任一部件，查看它在细胞里的作用。',
+        hudNote: '点选模型部件查看它在细胞里的作用',
+        emptyHint: '点选任一部件，查看它在细胞里的作用。',
       };
     }
     default: {
@@ -155,9 +153,8 @@ function buildModel(view: ResolvedView): WorkbenchModel {
         entryIsolate: false,
         pageTitle: view.kind === 'cover' ? '身体的一天 · 首页' : '人体总览',
         subjectLabel: '人体总览',
-        hudNote: '转动这具人体，点选任一结构开始探索；拖动「拆解」可以把它一层层打开。',
-        emptyHint:
-          '点选人体上的任一结构，这里会换成它的结构知识、与健康的关系，以及可以继续深入的方向。',
+        hudNote: '真实解剖模型 · 从完整人体向内逐层探索',
+        emptyHint: '点选任一结构，这里显示它的知识与健康关联。',
       };
     }
   }

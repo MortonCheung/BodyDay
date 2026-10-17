@@ -126,8 +126,6 @@ export function KnowledgeCard({
         </div>
       ) : null}
 
-      {entity.scaleNote ? <p className="bd-caption">{entity.scaleNote}</p> : null}
-
       {showSources ? <SourceList ids={entity.sources} /> : null}
     </article>
   );

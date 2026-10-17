@@ -191,6 +191,12 @@ interface ModelIndex {
     TintableMaterial,
     { opacity: number; transparent: boolean; depthWrite: boolean }
   >;
+  /** 淡化动画：目标不透明度（1 = 基准外观） */
+  opacityTarget: Map<THREE.Mesh, number>;
+  /** 淡化动画：当前不透明度（由渲染循环逐帧逼近目标） */
+  opacityCurrent: Map<THREE.Mesh, number>;
+  /** 尚未收敛、仍需逐帧推进的网格 */
+  opacityDirty: Set<THREE.Mesh>;
   stats: Omit<FullBodyStats, 'loadMs'>;
 }
 
@@ -406,6 +412,9 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     bodyRadius,
     emissiveBase: new Map(),
     baseMaterialState,
+    opacityTarget: new Map(),
+    opacityCurrent: new Map(),
+    opacityDirty: new Set(),
     stats: {
       nodeCount,
       meshCount: meshes.length,
@@ -544,6 +553,10 @@ function applySceneLook(
     if (hidden) {
       mesh.visible = false;
       mesh.layers.disable(0);
+      // 隐去的网格把当前不透明度记为 0：下次重新出现时从全透明淡入，而不是「啪」地出现
+      index.opacityCurrent.set(mesh, 0);
+      setMeshOpacity(index, mesh, 0);
+      index.opacityDirty.delete(mesh);
       continue;
     }
 
@@ -553,9 +566,16 @@ function applySceneLook(
     const dimmed = selectedId !== null && !belongsTo(mesh, index.parents, selectedId);
     let opacity = isShell ? shellFade : 1;
     if (dimmed) opacity = Math.min(opacity, isShell ? SHELL_DIM_OPACITY : DIM_OPACITY);
-    setMeshOpacity(index, mesh, opacity);
 
-    // 几乎透明（或被淡化）的网格不再拦截点击，让用户点得到里面的结构
+    /**
+     * 这里只写「目标」，真正的过渡交给渲染循环逐帧逼近。
+     * 于是「选中结构 → 其余淡化」是一段可见的淡出，而不是一帧内的突变。
+     */
+    index.opacityTarget.set(mesh, opacity);
+    if (!index.opacityCurrent.has(mesh)) index.opacityCurrent.set(mesh, 0);
+    index.opacityDirty.add(mesh);
+
+    // 射线可用性按**目标**判定，避免过渡期间点击行为抖动
     const raycastable = opacity >= RAYCAST_MIN_OPACITY && (!dimmed || !isShell);
     if (raycastable) mesh.layers.enable(0);
     else mesh.layers.disable(0);
@@ -850,6 +870,21 @@ function ModelRig({
       goalRef.current = null;
       // 相机停稳后再上报一次：投影出来的屏幕坐标必须是停稳后的读数
       emitProbe.current();
+    }
+  });
+
+  /* 淡化动画：把当前不透明度逐帧逼近目标 */
+  useFrame((_, delta) => {
+    if (index.opacityDirty.size === 0) return;
+    // 时间常数约 70ms：60fps 下约 0.2s 收敛；低帧率下也不会拖成好几秒
+    const k = 1 - Math.exp(-Math.min(delta, 0.4) / 0.07);
+    for (const mesh of index.opacityDirty) {
+      const target = index.opacityTarget.get(mesh) ?? 1;
+      const current = index.opacityCurrent.get(mesh) ?? 0;
+      const next = Math.abs(target - current) < 0.005 ? target : current + (target - current) * k;
+      index.opacityCurrent.set(mesh, next);
+      setMeshOpacity(index, mesh, next);
+      if (next === target) index.opacityDirty.delete(mesh);
     }
   });
 
