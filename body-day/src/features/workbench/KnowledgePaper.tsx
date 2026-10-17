@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { KnowledgeCard } from '../../components/ui';
 import { ENTITY_MAP, RELATION_TYPE_LABEL, type BodyEntity, type KnowledgeRelation } from '../../domain';
+import type { StructureCardData } from '../../domain/structureCard';
 import type { StructureInfo } from '../../services/atlas';
 import { ROUTES } from '../../app/routes';
 
@@ -32,8 +33,8 @@ interface KnowledgePaperProps {
   selection?: StructureInfo | null;
   /** 选中结构映射到的领域实体（若已登记且不是本页主体） */
   selectedEntity?: BodyEntity;
-  /** 选中的结构属于本页主体时（如在大脑页点到某个脑区）的如实说明 */
-  localSelection?: { name: string; partName: string | null; system: string | null } | null;
+  /** 选中的结构未编入科普卡时，用真实图谱元数据生成的简洁结构卡 */
+  structureCard?: StructureCardData | null;
   /** 主体所属系统（用于「所属系统」一行） */
   subjectSystem: string | null;
   /** 选中项（或本页主体）的跨尺度与功能关系（最多 3 条，避免纸条变成数据表） */
@@ -54,7 +55,7 @@ export function KnowledgePaper({
   entity,
   selection,
   selectedEntity,
-  localSelection,
+  structureCard,
   subjectSystem,
   relations,
   drill,
@@ -65,8 +66,14 @@ export function KnowledgePaper({
   sheetOpen,
   onToggleSheet,
 }: KnowledgePaperProps) {
-  /** 纸条当前在讲谁：优先跟随选中 */
-  const subject = selectedEntity ?? entity;
+  /**
+   * 纸条当前在讲谁：优先跟随选中。
+   *
+   * 选中一个未登记的真实结构时，只讲被点中的结构本身——
+   * 不再在下面继续挂一份「人体」总览（那会让人以为肺叶就是人体）。
+   * 只有「点在当前主体内部的局部结构上」（如大脑页点到某个脑区）才保留主体卡片作为上下文。
+   */
+  const subject = structureCard && !structureCard.parent ? undefined : selectedEntity ?? entity;
 
   return (
     <aside
@@ -92,19 +99,37 @@ export function KnowledgePaper({
         </button>
       </div>
 
-      {/* 选中的结构尚未编入科普卡片时，只给事实，不做多余解释 */}
-      {selection && !selectedEntity ? (
-        <section className="bd-wb-section" aria-label="当前选中">
-          <span className="bd-label">当前选中</span>
-          <p className="bd-body-secondary">
-            {localSelection
-              ? `${localSelection.partName ?? localSelection.name} · ${
-                  entity?.nameZh ?? '本页主体'
-                }的局部结构`
-              : `${selection.name ?? '未命名结构'}${
-                  selection.system ? ` · ${selection.system}` : ''
-                } · 尚未编入科普卡片`}
-          </p>
+      {/*
+        未编入科普卡的可选中结构（脑区、体表分区、任一真实解剖节点）：
+        用图谱元数据给出可核查的事实，字段缺失就不显示该字段——不写「尚未编入」这类防御句。
+      */}
+      {structureCard ? (
+        <section className="bd-wb-section" aria-label="当前结构">
+          <h3 className="bd-title">{structureCard.title}</h3>
+          <dl className="bd-knowledge__facts">
+            <div className="bd-knowledge__fact">
+              <dt>结构类别</dt>
+              <dd>{structureCard.category}</dd>
+            </div>
+            {structureCard.system ? (
+              <div className="bd-knowledge__fact">
+                <dt>所属系统</dt>
+                <dd>{structureCard.system}</dd>
+              </div>
+            ) : null}
+            {structureCard.parent ? (
+              <div className="bd-knowledge__fact">
+                <dt>上级结构</dt>
+                <dd>{structureCard.parent}</dd>
+              </div>
+            ) : null}
+            <div className="bd-knowledge__fact">
+              <dt>图谱来源</dt>
+              <dd>
+                Z-Anatomy 1.4.0（CC BY-SA 4.0）·<Link to={ROUTES.about}>来源与许可</Link>
+              </dd>
+            </div>
+          </dl>
         </section>
       ) : null}
 

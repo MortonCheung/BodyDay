@@ -1,0 +1,154 @@
+{
+  "base": "http://localhost:5173",
+  "startedAt": "2026-10-17T16:48:08.265Z",
+  "tests": {
+    "entry": {
+      "controlCount": 1,
+      "barBox": {
+        "width": 240,
+        "height": 3
+      },
+      "sameNode": true,
+      "disabledWhileMorphing": true,
+      "morphingBox": {
+        "width": 148,
+        "height": 44
+      },
+      "settledBox": {
+        "width": 148,
+        "height": 44
+      }
+    },
+    "enter": {
+      "hash": "#/body",
+      "coverGone": true,
+      "navItems": [
+        "身体",
+        "系统",
+        "器官",
+        "细胞",
+        "关于"
+      ],
+      "navCount": 5
+    },
+    "genericCard": {
+      "explodeProgress": 0.56,
+      "title": "人体总览",
+      "fields": [
+        "结构类别",
+        "所属系统",
+        "图谱来源"
+      ],
+      "values": [
+        "解剖结构",
+        "骨骼系统",
+        "Z-Anatomy 1.4.0（CC BY-SA 4.0）·来源与许可"
+      ],
+      "defensiveWording": false,
+      "bodyCardStillBelow": false
+    },
+    "partCard": {
+      "title": "大脑",
+      "fields": [
+        "位置",
+        "构成",
+        "主要分区",
+        "睡眠与脑",
+        "身体活动"
+      ],
+      "values": [
+        "位于颅腔内，与脑干、小脑共同组成脑的主体部分。",
+        "脑由神经组织构成，其中包含大量神经元与神经胶质细胞。",
+        "常按端脑（大脑）、小脑、脑干来分区描述。",
+        "充足的规律睡眠对认知、情绪与神经系统功能有重要作用；长期睡眠不足会损害注意力与记忆表现。",
+        "规律身体活动有益于整体健康，也与脑健康和生活质量相关。"
+      ],
+      "defensiveWording": false
+    },
+    "consoleErrors": []
+  },
+  "steps": [
+    {
+      "step": "1 入口同节点形变",
+      "detail": {
+        "controlCount": 1,
+        "barBox": {
+          "width": 240,
+          "height": 3
+        },
+        "sameNode": true,
+        "disabledWhileMorphing": true,
+        "morphingBox": {
+          "width": 148,
+          "height": 44
+        },
+        "settledBox": {
+          "width": 148,
+          "height": 44
+        }
+      }
+    },
+    {
+      "step": "2 进入与五项顶栏",
+      "detail": {
+        "hash": "#/body",
+        "coverGone": true,
+        "navItems": [
+          "身体",
+          "系统",
+          "器官",
+          "细胞",
+          "关于"
+        ],
+        "navCount": 5
+      }
+    },
+    {
+      "step": "3 未登记结构的通用卡",
+      "detail": {
+        "explodeProgress": 0.56,
+        "title": "人体总览",
+        "fields": [
+          "结构类别",
+          "所属系统",
+          "图谱来源"
+        ],
+        "values": [
+          "解剖结构",
+          "骨骼系统",
+          "Z-Anatomy 1.4.0（CC BY-SA 4.0）·来源与许可"
+        ],
+        "defensiveWording": false,
+        "bodyCardStillBelow": false
+      }
+    },
+    {
+      "step": "4 局部结构卡",
+      "detail": {
+        "title": "大脑",
+        "fields": [
+          "位置",
+          "构成",
+          "主要分区",
+          "睡眠与脑",
+          "身体活动"
+        ],
+        "values": [
+          "位于颅腔内，与脑干、小脑共同组成脑的主体部分。",
+          "脑由神经组织构成，其中包含大量神经元与神经胶质细胞。",
+          "常按端脑（大脑）、小脑、脑干来分区描述。",
+          "充足的规律睡眠对认知、情绪与神经系统功能有重要作用；长期睡眠不足会损害注意力与记忆表现。",
+          "规律身体活动有益于整体健康，也与脑健康和生活质量相关。"
+        ],
+        "defensiveWording": false
+      }
+    },
+    {
+      "step": "5 控制台",
+      "detail": {
+        "errors": []
+      }
+    }
+  ],
+  "finishedAt": "2026-10-17T16:48:39.239Z"
+}
