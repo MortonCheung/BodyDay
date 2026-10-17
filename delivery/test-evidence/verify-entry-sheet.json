@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:5173",
-  "startedAt": "2026-10-17T16:48:08.265Z",
+  "startedAt": "2026-10-17T17:05:30.568Z",
   "tests": {
     "entry": {
       "controlCount": 1,
@@ -11,8 +11,8 @@
       "sameNode": true,
       "disabledWhileMorphing": true,
       "morphingBox": {
-        "width": 148,
-        "height": 44
+        "width": 240,
+        "height": 3
       },
       "settledBox": {
         "width": 148,
@@ -33,7 +33,10 @@
     },
     "genericCard": {
       "explodeProgress": 0.56,
-      "title": "人体总览",
+      "titles": [
+        "人体总览",
+        "Tibiar"
+      ],
       "fields": [
         "结构类别",
         "所属系统",
@@ -48,7 +51,10 @@
       "bodyCardStillBelow": false
     },
     "partCard": {
-      "title": "大脑",
+      "titles": [
+        "大脑",
+        "大脑"
+      ],
       "fields": [
         "位置",
         "构成",
@@ -79,8 +85,8 @@
         "sameNode": true,
         "disabledWhileMorphing": true,
         "morphingBox": {
-          "width": 148,
-          "height": 44
+          "width": 240,
+          "height": 3
         },
         "settledBox": {
           "width": 148,
@@ -107,7 +113,10 @@
       "step": "3 未登记结构的通用卡",
       "detail": {
         "explodeProgress": 0.56,
-        "title": "人体总览",
+        "titles": [
+          "人体总览",
+          "Tibiar"
+        ],
         "fields": [
           "结构类别",
           "所属系统",
@@ -125,7 +134,10 @@
     {
       "step": "4 局部结构卡",
       "detail": {
-        "title": "大脑",
+        "titles": [
+          "大脑",
+          "大脑"
+        ],
         "fields": [
           "位置",
           "构成",
@@ -150,5 +162,5 @@
       }
     }
   ],
-  "finishedAt": "2026-10-17T16:48:39.239Z"
+  "finishedAt": "2026-10-17T17:06:02.690Z"
 }

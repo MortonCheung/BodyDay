@@ -7,6 +7,9 @@
 > 人体模型随作品发布（本地加载），不再依赖运行时外链。
 > **V2.1（2026-10-16）**：赛前最后一轮交互纠偏——交互改为**滚轮驱动拆解**、选中为**高亮 + 其余淡化**、
 > 取消选中**恢复原视角**、默认人体**中性化公开展示**；凡标注「V2.1」处与该轮口径一致。
+> **2026-10-18 增量修订（本版）**：采用**路线 B**（保留自建三维舞台，**未**移植 Human Atlas 拆解引擎，原因见 `FINAL_HANDOFF_20261018.md` §1）；
+> 新增**入口同节点形变**、**五项层级顶栏**、**任意可点选结构真实卡**；门禁更新为 tsc 0 / oxlint **0 error · 13 warning** / vitest **76/76** / vite build 通过（2026-10-18 实测）；
+> 演示视频订正为**约 105 秒**；**🔴 远端推送结果需人工确认**（本地实测 ahead 4）。
 
 ## 1. Git 与版本控制
 
@@ -14,7 +17,9 @@
 |---|---|
 | 远端 | `https://github.com/MortonCheung/BodyDay.git`（**沿用原仓库，未新建**） |
 | main | 已推送至提交 `aea1669`（V1「单空间工作台」版本的最终提交） |
-| V2 开发分支 | `feat/bodyday-immersive-v2`（从 `main` 的 `aea1669` 起演进）；V2 与 **V2.1（2026-10-16）** 两轮提交均推送到该分支，按阶段**分别提交并推送**，**不合并 main、不 force push**（V2 提交：`bdf738f`、`78f5044`、`9a3dbfa`、`c90be71`） |
+| V2 开发分支 | `feat/bodyday-immersive-v2`（从 `main` 的 `aea1669` 起演进）；V2、**V2.1（2026-10-16）** 与 **10/18 增量**均提交到该分支（V2：`bdf738f`、`78f5044`、`9a3dbfa`、`c90be71`；V2.1：`00ecd95`、`7899bbf`、`c3df657`；10/18：`3c2e1d4`、`c06b49a`、`b014e17`，当前 HEAD = `b014e17`），**不合并 main、不 force push** |
+| 远端推送状态 | 🔴 **需人工确认**：`origin/feat/bodyday-immersive-v2` 实测停在 `7899bbf`，本地 **ahead 4**（`c3df657`、`3c2e1d4`、`c06b49a`、`b014e17` 未推送）。本日推送曾被网络阻断（`Empty reply from server` / 75 秒超时），最终以人工执行 `git push origin feat/bodyday-immersive-v2` 的返回为准 |
+| 回滚点 | Git 标签 `pre-1018-baseline`（注解标签，`^{commit}` 实测 → `c3df657`）；回滚方式 `git checkout pre-1018-baseline`（只读查看）或 `git reset --hard pre-1018-baseline`（**🔴 需人工确认后再执行**） |
 | 旧代码处理 | 旧「寝室 3D Demo」归档于 `body-day/src/legacy/dorm/`；V2 删除的 V1 文件保留在 Git 历史中，可随时回退 |
 
 旧「寝室 3D Demo」由 `git mv` 归档到 `body-day/src/legacy/dorm/`，**未删除、未破坏历史**。
@@ -27,11 +32,14 @@
 |---|---|
 | **单工作台**：中央唯一真实三维人体 + 右侧一条随选中联动的知识纸条 | `body-day/src/features/workbench/ExploreWorkbench.tsx`、`KnowledgePaper.tsx` |
 | **启动封面闸门**：真实字节进度（31.8 MB）→ 模型就绪 → 手动「进入探索」 | `src/features/startup/StartupCover.tsx`、`src/app/AppProviders.tsx`；状态机 `loading → ready-to-enter → entering → exploring` |
+| **入口同节点形变**（10/18） | 同一个 `<button>` 先为 240×3 px 进度条，就绪后原地形变为 148×44 px「进入探索」，形变完成前 `disabled`；实测 `sameNode = true`（`delivery/test-evidence/verify-entry-sheet.json`） |
+| **五项层级顶栏**（10/18） | 顶栏 = 身体 / 系统 / 器官 / 细胞 / 关于（5 项），均落真实路由；实测 `navCount = 5`（`verify-entry-sheet.json`） |
+| **任意可点选结构真实卡**（10/18） | 未编写科普内容的结构，用图谱真实字段（结构类别 / 所属系统 / 图谱来源）出卡，字段缺失即整行不显示；**无**「尚未编入」防御句、**不再**重复挂「人体」总览卡（`verify-entry-sheet.json`，纯函数 `src/domain/structureCard.ts` + 单测 6 项） |
 | 进入前整个外壳 `inert` 且不可读屏；**不自动进入、不自动淡出**；加载超过 45 s 提示检查网络并可「重新加载」 | 真实浏览器实测（`inert = true`） |
 | 深链 `/body`、`/organ/*`、`/cell/*`、`/about` **不经过封面** | 逐页实测，均直接可达 |
 | **模型驱动的结构选择**：点选 / 悬停高亮 / 聚焦 / 隔离 / 逐层拆解 / 返回上一级层级栈 | `src/three/FullBodyStage.tsx`；悬停与选中叠加在真实材质自发光上；**V2.1**：选中为**高亮 + 其余淡化**（opacity 0.16 / 外壳 0.10）而非隐藏，取消选中（点空白 / Esc / 返回上一级）**恢复选中前相机视角**（实测误差 0），拖动旋转不再被当点击（位移 > 6px 忽略） |
 | **自建 React Three Fiber 舞台**（Three.js r186 + R3F 9 + Drei 10），已移除 `@vixotic/vanatome-react` | `FullBodyStage.tsx` / `fullBody.ts`；其公开 API 只提供 select/focus/isolate/reset/visibleLayers，无网格位移入口，无法实现真实拆解 |
-| **真实几何拆解**（需求四）：读取 GLB `extras`，按解剖系统分层对真实网格做径向平移 + 体表外壳渐进隐去 | 实测 25% 外壳不透明度 0.316、完全拆解可见网格 748；位移由进度重算、从不累加。**V2.1**：总览未选中时由**滚轮**逐层拆解 / 反向组装（每格 0.07、钳制 [0,1]，实测 `progress` 0→0.42→0.21）；**桌面端不再显示拆解滑杆**（触屏保留） |
+| **真实几何拆解**（需求四）：读取 GLB `extras`，按解剖系统分层对真实网格做径向平移 + 体表外壳渐进隐去 | 实测 25% 外壳不透明度 0.316；完全拆解「可见网格数」现有证据 `capture.json` 记录为 **734**、早期文档记录为 748，**⚠️ 数值不一致，🔴 需复核**；位移由进度重算、从不累加。**V2.1**：总览未选中时由**滚轮**逐层拆解 / 反向组装（每格 0.07、钳制 [0,1]，实测 `progress` 0→0.42→0.21）；**桌面端不再显示拆解滑杆**（触屏保留） |
 | **拆解后仍可点选** | 按投影坐标实测：50% 时一次命中心脏、100% 时一次命中脾脏 |
 | **真实器官隔离（器官页·页面级）** | 器官页隔离网格数实测：大脑 169、心脏 4、脾脏 1。**V2.1**：总览选中改为淡化，仅器官页仍整体收起其余结构 |
 | **中性化公开展示（V2.1 新增）** | 默认人体隐去 **17 个网格**（`reproductive` 系统 14 + 体表外壳 `Urogenital region.l/.r` 2 + `Pubic hairs` 1），可见网格 984 → **967**；只过滤系统不够，`GLTFLoader` 节点名清洗后按归一化比较匹配并有单测 |
@@ -57,6 +65,7 @@
 
 | 项 | 说明 |
 |---|---|
+| **真实二维平面打包（planar packing）（重要）** | **未实现**：本作品的「展开」是**真实几何按解剖系统的分层径向分离**，**不是** Human Atlas 那种「投影到同一前视平面、行列打包」的平面展开；手册要求的「平面排列、避免重叠」**不成立**，**不得宣称**具备该能力（本次采用**路线 B**，见 `FINAL_HANDOFF_20261018.md` §1） |
 | 移动端真机验收 | 未做（仅浏览器视口检查，触屏保留拆解滑杆） |
 | 真实 GPU 帧率 | **未采集**（自动化验收跑在 SwiftShader 软件渲染下，故不给出任何 FPS） |
 | Firefox / Safari 兼容性实测 | 未做（自动化环境为 Chromium 140） |
@@ -64,7 +73,8 @@
 | **肾 / 膀胱专题（V2.1）** | 未新增：真实模型里 `urinary` 仅 3 个网格，不足以支撑专题，只保留基础展示 |
 | 平台提交 / 学校盖章 | **人工环节，未代做，也未声称已提交**（截止 2026-10-18） |
 
-> 演示视频**已按 V2.1 界面重录**：`delivery/demo/bodyday-v2-walkthrough.mp4`（**81 秒**，1440×900，H.264，真实浏览器录制，用真实滚轮逐层拆解）。
+> 演示视频**已重录**：`delivery/demo/bodyday-v2-walkthrough.mp4`（**约 105 秒**，`ffprobe` 实测 duration = 105.4 s，1440×900，H.264，真实浏览器录制）。
+> ⚠️ 旧文档所写「81 秒」为**过期说法**，已订正；软件渲染下成片**不够流畅**，建议在真机 GPU 环境重录。
 > `delivery/demo/DEMO_VIDEO_SCRIPT.md` 保留为需在真实 GPU 机器上**重录 / 补录**的分镜脚本。
 
 ## 3. 页面数量
@@ -79,22 +89,23 @@
 
 ## 4. 验证结果（真实命令与输出）
 
-### 4.1 四道门禁（2026-10-15 实测）
+### 4.1 四道门禁（2026-10-18 实测）
 
 | 门禁 | 命令 | 结果 |
 |---|---|---|
 | 类型检查 | `npx tsc -b` | ✅ **0 错误** |
-| 代码规范 | `npx oxlint` | ✅ **0 error / 12 warning**（12 条均为改版前既有） |
-| 单元测试 | `npx vitest run` | ✅ **70 / 70 通过**（`domain` 22 + `cellGeometry` 19 + `fullBody` **28**；**V2.1** 新增 4 项公开展示过滤用例） |
-| 构建 | `npm run build`（`tsc -b && vite build`） | ✅ **成功** |
+| 代码规范 | `npx oxlint` | ✅ **0 error / 13 warning**（`Found 13 warnings and 0 errors`，60 files；均为既有项） |
+| 单元测试 | `npx vitest run` | ✅ **76 / 76 通过**（`structureCard` 6 + `domain` 22 + `fullBody` 29 + `cellGeometry` 19；4 test files 全绿） |
+| 构建 | `npx vite build`（`npm run build` 的构建段） | ✅ **成功**（`✓ built in 313ms`） |
 
 构建产物（真实输出）：
 
 ```
-主包（含探索页外壳）      index-*.js          337.89 kB │ gzip: 107.55 kB
-三维运行时（按需加载）    OrbitControls-*.js  928.08 kB │ gzip: 246.00 kB
-整具人体舞台（按需加载）  FullBodyStage-*.js   82.68 kB
-细胞舞台（按需加载）      CellStage-*.js       11.16 kB
+主包（含探索页外壳）      index-*.js          333.90 kB │ gzip: 106.52 kB
+三维运行时（按需加载）    OrbitControls-*.js  928.08 kB │ gzip: 246.42 kB
+整具人体舞台（按需加载）  FullBodyStage-*.js   85.44 kB │ gzip:  26.49 kB
+细胞舞台（按需加载）      CellStage-*.js       11.16 kB │ gzip:   4.09 kB
+样式                      index-*.css          30.17 kB │ gzip:   6.41 kB
 ```
 
 ### 4.2 真实浏览器验收
@@ -103,10 +114,11 @@
 |---|---|
 | 11/11 页逐页验收 | ✅ 全部渲染成功；探索页 `canvas = 1`、封底 `canvas = 0`；**控制台 error 与 pageerror 计数为 0** |
 | 启动闸门 | ✅ 进入前 `inert = true`；就绪耗时 0.61–1.24 s；不自动进入、不自动淡出 |
-| 拆解 | ✅ 25% 外壳不透明度 0.316；完全拆解可见网格 748；镜头随位移后包围盒联动（3.05 → 3.25） |
+| 拆解 | ✅ 25% 外壳不透明度 0.316；镜头随位移后包围盒联动（3.05 → 3.25）。注：完全拆解「可见网格数」现有证据 `capture.json` 记录为 **734**，而早期文档记录为 748，**⚠️ 数值不一致，🔴 需以真机复核为准** |
 | 拆解后点选 | ✅ 按投影坐标一次命中心脏 / 脾脏 |
 | 移动端视口 390×844 | ✅ 无横向溢出（`scrollWidth = 390 = viewport`） |
 | **V2.1 交互（2026-10-16）** | ✅ 滚轮 0 → 0.42 → 0.21（真实几何位移）、桌面滑杆隐藏；点体表其余结构仍可见（967）且相机聚焦；取消选中恢复误差 0；控制台 error / pageerror 均为 0（`delivery/test-evidence/verify-v2.json`） |
+| **10/18 交互（采集于 2026-10-17）** | ✅ 入口同节点形变（240×3 → 148×44、`sameNode = true`、形变中 `disabled`）；五项顶栏 `navCount = 5`；通用结构卡字段 = `解剖结构 / 骨骼系统 / Z-Anatomy 1.4.0（CC BY-SA 4.0）`、`defensiveWording = false`、`bodyCardStillBelow = false`；控制台 0 error（`delivery/test-evidence/verify-entry-sheet.json`） |
 
 ## 5. 交付物位置
 
@@ -124,6 +136,7 @@
 | 演示视频分镜（重录 / 补录用） | `delivery/demo/DEMO_VIDEO_SCRIPT.md` |
 | 提交检查清单 | `delivery/DELIVERY_CHECKLIST.md` |
 | 发布状态 | `delivery/RELEASE_STATUS.md` |
+| **交付交接主文档（10/18）** | `delivery/FINAL_HANDOFF_20261018.md`（路线与结论、P0 逐条读数、未实现项、门禁、逐页、提交与回滚、交付清单、人工事项） |
 | V2 设计与验收记录 | `docs/v2/`（`04_TEST_AND_ACCEPTANCE.md`、`05_FINAL_HANDOFF.md` 等） |
 
 ### 5.1 14 张真实运行截图索引
@@ -193,12 +206,16 @@ npm run build                 # 产物 dist/，纯静态
 
 ## 8. 剩余需人工处理的事务
 
-1. **学校审核推荐**：汇总、盖章、邮寄（赛事要求，本 Agent 不代做）。
-2. **网络平台报名与提交**：截止 **2026-10-18**。当前**未提交、未上线**。
-3. **演示视频**：已按 V2.1 界面重录 `delivery/demo/bodyday-v2-walkthrough.mp4`（81 秒）；如需更高规格版本，
-   按 `delivery/demo/DEMO_VIDEO_SCRIPT.md` 在装有真实 GPU 的机器上重录 / 补录。
-4. **《作品开发文档》`.docx` 复核**：请在 Word 或 WPS Office 中确认排版与截图插入效果。
+1. **学校审核推荐**：汇总、盖章、邮寄（赛事要求，本 Agent 不代做）。🔴
+2. **网络平台报名与提交**：截止 **2026-10-18**。当前**未提交、未上线**。🔴
+3. **演示视频**：`delivery/demo/bodyday-v2-walkthrough.mp4`（**约 105 秒**，`ffprobe` 实测 105.4 s）；如需更高规格版本，
+   按 `delivery/demo/DEMO_VIDEO_SCRIPT.md` 在装有真实 GPU 的机器上重录 / 补录。🔴（确认 ≤8 分钟）
+4. **《作品开发文档》`.docx` 复核**：请在 Word 或 WPS Office 中确认排版与截图插入、**无错版**。🔴
 5. **移动端真机走查**：iOS Safari 与 Android Chrome 各走一遍（浏览器视口检查已完成）。
+6. **就「作品此前在 GitHub 公开」一事向校赛负责人核实**：比赛总通知要求作品未公开发表，本仓库曾公开可访问；
+   **转为私有不消除「曾公开」的事实，不得声明「作品从未公开」**。🔴
+7. **确认远端推送结果**：`origin/feat/bodyday-immersive-v2` 实测停在 `7899bbf`，本地 **ahead 4**；
+   本日推送曾被网络阻断，最终请以人工执行 `git push origin feat/bodyday-immersive-v2` 的返回为准。🔴
 
 ## 9. 观察记录（非本 Agent 操作）
 

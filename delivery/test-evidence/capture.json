@@ -21,7 +21,7 @@
       "step": "移动端视口检查",
       "detail": {
         "viewport": 390,
-        "scrollWidth": 390,
+        "scrollWidth": 457,
         "sheet": "closed"
       }
     }
@@ -43,5 +43,5 @@
     "14-mobile-390x844"
   ],
   "video": "page@16bb0c09092a2eecdaaccfcd17b3893e.webm",
-  "finishedAt": "2026-10-17T13:13:00.398Z"
+  "finishedAt": "2026-10-17T17:09:06.200Z"
 }

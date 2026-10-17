@@ -9,6 +9,8 @@
 > （点选、悬停高亮、聚焦、隔离、**V2.1 滚轮驱动的逐层拆解**，以及「返回上一级」的层级栈）。
 > 人体 → 系统 → 器官 → 细胞之间的差别，只体现为**镜头位置与右侧纸条内容的变化**，
 > 不换页面外壳、不重挂三维场景。
+> **2026-10-18**：顶栏为**五项层级导航（身体 / 系统 / 器官 / 细胞 / 关于）**，五项均落真实路由（实测 `navCount = 5`，见
+> `delivery/test-evidence/verify-entry-sheet.json`）；入口为**同节点形变**；任意可点选结构都出**真实卡**。本节页面清单与 `body-day/src/app/routes.ts` 的 `PAGE_INDEX` 一致（11 页）。
 >
 > 全部截图由真实浏览器（Chrome for Testing + SwiftShader 软件渲染）在 **1440×900** 视口下对
 > **真实运行的开发服务器**抓取（移动端一帧为 390×844，2x），
@@ -102,5 +104,5 @@ node scripts/capture-screenshots.mjs   # 生成 14 张 PNG 到 delivery/test-evi
 
 脚本用真实浏览器走「封面 → 进入 → 旋转 → **滚轮逐层拆解 / 组装** → 选器官 → 进入器官页 → 下潜细胞 → 关于」的完整链路，
 同一次运行内产出 14 张截图；体验录像的原始 webm 写在系统临时目录，再用 `ffmpeg` 转成交付用 mp4
-（`delivery/demo/bodyday-v2-walkthrough.mp4`，**V2.1 成片 81 秒**，用真实滚轮逐层拆解）。整具人体模型随作品发布在 `body-day/public/models/`，
+（`delivery/demo/bodyday-v2-walkthrough.mp4`，**成片约 105 秒**（`ffprobe` 实测 105.4 s）；⚠️ 旧版所写「81 秒」为过期说法，已订正）。整具人体模型随作品发布在 `body-day/public/models/`，
 截图与录像**不再依赖外网 CDN**，离线也能复现；细胞页面为程序化几何本地生成，同样无网络依赖。

@@ -27,8 +27,21 @@ import {
   type SystemBrief,
 } from '../../domain';
 import type { FullBodyProbe, FullBodyStats } from '../../three/FullBodyStage';
-import { KnowledgePaper, type AscendLink, type DrillLink } from './KnowledgePaper';
+import {
+  KnowledgePaper,
+  type AscendLink,
+  type DrillLink,
+} from './KnowledgePaper';
+import { buildStructureCard, type StructureCardData } from '../../domain/structureCard';
 import './workbench.css';
+
+/** 结构类别的中文名：只由已登记实体的真实 kind 推导，不猜、不编 */
+const ENTITY_KIND_LABEL: Record<string, string> = {
+  body: '整体',
+  system: '系统',
+  organ: '器官',
+  cell: '细胞',
+};
 
 /**
  * BodyDay 空间工作台（V2）。
@@ -317,20 +330,35 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
     return selectionEntityId === model.entity?.id ? undefined : ENTITY_MAP[selectionEntityId];
   }, [model.isCell, model.entity, selectionEntityId, stage.selectedEntityId]);
 
-  /** 在大脑页点到某个脑区这类情况：有归属，但内容仍然是本页主体的卡片 */
-  const localSelection = useMemo(
-    () =>
-      selectionEntityId && selectionEntityId === model.entity?.id && current
-        ? {
-            name: current.info.name ?? model.entity?.nameZh ?? '本页主体',
-            partName: current.info.partName,
-            system: current.info.system,
-          }
-        : null,
-    [selectionEntityId, model.entity, current],
-  );
+  /**
+   * 未编入科普卡的可选中结构 → 一张只讲真实事实的结构卡。
+   *
+   * 事实来自本作品实际渲染的解剖图谱元数据（结构名、所属系统、解剖父链）；
+   * 元数据里没有经人工核对的内容时就不写，绝不编造，也不再出现「尚未编入」这类防御句。
+   */
+  const structureCard = useMemo<StructureCardData | null>(() => {
+    if (!current || selectedEntity) return null;
+    const info = current.info;
+    const mapped = info.entityId ? ENTITY_MAP[info.entityId] : undefined;
+    return buildStructureCard({
+      name: info.name,
+      partName: info.partName,
+      system: info.system,
+      entityKind: mapped?.kind ?? null,
+      kindLabels: ENTITY_KIND_LABEL,
+      isPageSubject: Boolean(info.entityId && info.entityId === model.entity?.id),
+    });
+  }, [current, selectedEntity, model.entity]);
 
-  const subjectEntityId = selectedEntity?.id ?? model.entity?.id;
+  /**
+   * 纸条主体：优先选中映射到的实体；点在局部结构上时，主体仍是它所属的已登记结构；
+   * 点在未登记结构上时只讲被点中的结构本身，不再挂一份「人体」总览。
+   */
+  const subjectEntityId = useMemo(() => {
+    if (selectedEntity) return selectedEntity.id;
+    if (!current) return model.entity?.id;
+    return structureCard?.parent ? model.entity?.id : undefined;
+  }, [selectedEntity, current, structureCard, model.entity]);
 
   const relations = useMemo<KnowledgeRelation[]>(
     () => (subjectEntityId ? relationsOf(subjectEntityId).slice(0, 3) : []),
@@ -496,7 +524,7 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
         entity={model.entity}
         selection={model.isCell ? null : current?.info ?? null}
         selectedEntity={selectedEntity}
-        localSelection={localSelection}
+        structureCard={structureCard}
         subjectSystem={subjectSystem}
         relations={relations}
         drill={drill}

@@ -42,7 +42,9 @@ const readStage = () =>
   page.evaluate(() => {
     const state = window.__BODYDAY_STAGE__;
     const paper = document.querySelector('.bd-wb-paper');
-    const selection = paper?.querySelector('[aria-label="当前选中"]');
+    /* 选中态：V2.1 用「当前选中」区块，10/18 起改为「当前结构」结构卡（两者都接受） */
+    const selection =
+      paper?.querySelector('[aria-label="当前结构"]') ?? paper?.querySelector('[aria-label="当前选中"]');
     return {
       probe: state?.probe ?? null,
       view: state?.view ?? null,
