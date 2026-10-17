@@ -154,10 +154,10 @@ OrbitControls-*.js                        928.08 kB │ gzip: 246.42 kB
 
 | 项 | 值 |
 |---|---|
-| 远端跟踪引用 | `origin/feat/bodyday-immersive-v2 = 7899bbf`（`git rev-parse` 实测） |
-| 本地相对远端 | **`ahead 4`**：未推送的 4 个提交 = `c3df657`、`3c2e1d4`、`c06b49a`、`b014e17` |
-| 推送尝试 | 本日推送**曾被网络阻断**（一次 `Empty reply from server`、一次 75 秒超时） |
-| 结论 | **🔴 需人工确认推送结果**：最终是否成功，以人工执行 `git push origin feat/bodyday-immersive-v2` 的返回为准。**在确认前，不得声称「10/18 改动已推送到远端」。** |
+| 远端跟踪引用 | 施工中实测为 `7899bbf`；本次推送后已推进到 `b3ae71d` |
+| 本地相对远端 | **已同步**：10/18 的 4 个提交 `c3df657`、`3c2e1d4`、`c06b49a`、`b014e17` 已推送 |
+| 推送尝试 | 本日推送**曾被网络阻断**（一次 `Empty reply from server`、一次 75 秒连接超时），网络恢复后重试成功 |
+| 结论 | **✅ 实测已推送**：`git push origin feat/bodyday-immersive-v2` 返回 `7899bbf..b3ae71d`（随后交付文档同步提交 `b3ae71d` 亦已推送）。远端分支现为 `b3ae71d`，本地工作区干净。`main` 未被合并、未被强推。 |
 
 ---
 
