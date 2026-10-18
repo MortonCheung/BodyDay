@@ -4,7 +4,8 @@
    模型占据主要可用宽度，两栏只用细线分隔；不用渐变、玻璃拟态、发光描边与装饰性标签。 */
 
 :root {
-  --bd-wb-right: clamp(296px, 24vw, 368px);
+  --bd-wb-left: clamp(240px, 19vw, 280px);
+  --bd-wb-right: clamp(300px, 23vw, 360px);
   --bd-wb-gap: clamp(12px, 1.5vw, 26px);
   --bd-wb-gutter-x: clamp(12px, 2.2vw, 32px);
   --bd-wb-gutter-y: clamp(10px, 2vh, 22px);
@@ -14,10 +15,45 @@
   height: calc(100dvh - var(--bd-nav-height));
   min-height: 0;
   display: grid;
+  /* 默认两栏：中央可视化 + 右信息栏；左操作栏只在有真实控制内容时出现 */
   grid-template-columns: minmax(0, 1fr) var(--bd-wb-right);
   gap: var(--bd-wb-gap);
   padding: var(--bd-wb-gutter-y) var(--bd-wb-gutter-x);
   overflow: hidden;
+}
+
+/* 三栏：左操作栏 240–280 / 中央 minmax(0,1fr) / 右信息栏 300–360（手册 §3.2 / §5.1） */
+.bd-workbench[data-control="on"] {
+  grid-template-columns: var(--bd-wb-left) minmax(0, 1fr) var(--bd-wb-right);
+}
+
+/* 左操作栏：只做控制（系统筛选 / 当前对象），不做科普正文 */
+.bd-wb-control {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bd-space-5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 0;
+}
+.bd-wb-control__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bd-space-3);
+  padding-bottom: var(--bd-space-4);
+  border-bottom: 1px solid var(--bd-rule-soft);
+}
+.bd-wb-control__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--bd-space-3);
+}
+.bd-wb-control__status {
+  color: var(--bd-ink);
+  font-size: var(--bd-fs-small);
+  line-height: 1.6;
 }
 
 /* 中央：唯一舞台，占据主要宽度 */
@@ -175,15 +211,24 @@
 
 /* ---- 响应式：小屏把纸条变为可收起的底部抽屉，模型仍占满剩余视图 ---- */
 @media (max-width: 1180px) {
-  :root { --bd-wb-right: 288px; }
+  :root { --bd-wb-right: clamp(300px, 26vw, 340px); }
+}
+@media (max-width: 1024px) {
+  /* 中屏优先保住中央模型：收起左操作栏，回到两栏 */
+  .bd-workbench[data-control="on"] {
+    grid-template-columns: minmax(0, 1fr) var(--bd-wb-right);
+  }
+  .bd-wb-control { display: none; }
 }
 @media (max-width: 900px) {
   :root { --bd-wb-gutter-y: 10px; }
-  .bd-workbench {
+  .bd-workbench,
+  .bd-workbench[data-control="on"] {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     gap: 0;
   }
+  .bd-wb-control { display: none; }
   .bd-wb-paper {
     position: fixed;
     left: 0;

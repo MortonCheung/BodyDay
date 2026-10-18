@@ -127,7 +127,8 @@ try {
     () => window.__BODYDAY_STAGE__?.probe?.progress ?? null,
   );
 
-  await page.mouse.click(stageBox.x + stageBox.width * 0.44, stageBox.y + stageBox.height * 0.78);
+  /* 10/18 加入左操作栏后舞台右移变窄，点击落点同步微调到中央偏下（实测命中真实小腿结构） */
+  await page.mouse.click(stageBox.x + stageBox.width * 0.5, stageBox.y + stageBox.height * 0.75);
   await page.waitForTimeout(2200);
   const generic = await readPaper();
   report.tests.genericCard = {

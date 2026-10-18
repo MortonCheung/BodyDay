@@ -17,6 +17,7 @@ import { markDiscovered } from '../../services/progress';
 import {
   ENTITY_MAP,
   SCALE_MAP,
+  SYSTEMS,
   getChildren,
   getEntity,
   getSystem,
@@ -227,6 +228,8 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   const [resetNonce, setResetNonce] = useState(0);
   const [hovered, setHovered] = useState<StructureInfo | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** 左操作栏的系统筛选（atlas 系统 ID）；null = 显示全部系统 */
+  const [systemFilter, setSystemFilter] = useState<string | null>(null);
 
   const current = history.length > 0 ? history[history.length - 1] : null;
   const canGoBack = history.length > 1;
@@ -277,6 +280,7 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
       setExplode(0);
     }
     setHovered(null);
+    setSystemFilter(null);
     setFocusNonce((n) => n + 1);
     setResetNonce((n) => n + 1);
     if (!model.isCell && model.entity) markDiscovered(model.entity.id);
@@ -289,6 +293,15 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
    * 其余页面（含人体总览）选中结构时**只淡化**其它结构，保留完整人体的空间上下文。
    */
   const isolateStructureId = model.entryIsolate ? model.entryStructureId : null;
+
+  /** 系统筛选：左操作栏的显式选择优先，否则用页面自带的系统视图 */
+  const effectiveOnlySystemId = systemFilter ?? model.onlySystemId;
+  /**
+   * 左操作栏只在「整具人体可被系统筛选」的页面出现（人体探索 / 系统页）。
+   * 器官页与器官详解页已经隔离单个器官，细胞页没有系统概念——这些页面不出现左栏，
+   * 不为填空间堆重复内容（手册 §3.2）。
+   */
+  const showControls = !model.isCell && !model.entryIsolate;
 
   useEffect(() => {
     devState.current.view = {
@@ -445,8 +458,46 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   );
 
   return (
-    <div className="bd-workbench" data-paper={sheetOpen ? 'open' : 'closed'}>
+    <div className="bd-workbench" data-paper={sheetOpen ? 'open' : 'closed'} data-control={showControls ? 'on' : 'off'}>
       <h1 className="bd-sr-only">{model.pageTitle}</h1>
+
+      {showControls ? (
+        <aside className="bd-wb-control" aria-label="操作栏">
+          <div className="bd-wb-control__block">
+            <span className="bd-label">系统筛选</span>
+            <div className="bd-wb-control__chips">
+              <button
+                type="button"
+                className="bd-chip"
+                data-active={systemFilter === null}
+                onClick={() => setSystemFilter(null)}
+              >
+                全部
+              </button>
+              {SYSTEMS.map((system) => (
+                <button
+                  key={system.atlasId}
+                  type="button"
+                  className="bd-chip"
+                  data-active={systemFilter === system.atlasId}
+                  onClick={() =>
+                    setSystemFilter(systemFilter === system.atlasId ? null : system.atlasId)
+                  }
+                >
+                  {system.nameZh}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bd-wb-control__block">
+            <span className="bd-label">当前对象</span>
+            <p className="bd-wb-control__status">
+              {current?.info.name ?? model.entity?.nameZh ?? '未选中结构'}
+            </p>
+          </div>
+        </aside>
+      ) : null}
 
       <div className="bd-wb-column">
         <div className="bd-wb-stage" data-stage={model.isCell ? 'cell' : 'body'}>
@@ -467,7 +518,7 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
                 resetNonce={resetNonce}
                 onExplodeWheel={handleExplodeWheel}
                 isolateStructureId={isolateStructureId}
-                onlySystemId={model.onlySystemId}
+                onlySystemId={effectiveOnlySystemId}
                 onReady={handleReady}
                 onProbe={handleProbe}
                 onProgress={reportProgress}

@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:5173",
-  "startedAt": "2026-10-18T04:21:55.991Z",
+  "startedAt": "2026-10-18T04:29:14.491Z",
   "tests": {
     "entry": {
       "controlCount": 1,
@@ -32,7 +32,7 @@
     "genericCard": {
       "explodeProgress": 0.56,
       "titles": [
-        "Tibiar"
+        "Tibial"
       ],
       "fields": [],
       "values": [],
@@ -100,7 +100,7 @@
       "detail": {
         "explodeProgress": 0.56,
         "titles": [
-          "Tibiar"
+          "Tibial"
         ],
         "fields": [],
         "values": [],
@@ -138,5 +138,5 @@
       }
     }
   ],
-  "finishedAt": "2026-10-18T04:22:29.431Z"
+  "finishedAt": "2026-10-18T04:29:43.307Z"
 }

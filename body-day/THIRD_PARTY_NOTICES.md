@@ -68,7 +68,8 @@
 | `cclank/cell-architecture-studio` 的细胞 GLB | 白细胞模型约 54 MiB，且大型细胞模型再分发许可不明 | 许可不清 + 移动端体量过大。**BodyDay 改用自研程序化几何** |
 | `GordenSun/LearningCell`、`JDerekLomas/blendercell`、`QI-flowy/3DArchitectureStudio` | 教学素材 / 许可不明 | 不采纳 |
 | `hubmapconsortium/hra-ui` 等关系数据仓库 | 未直接引入代码 | 科学关系由 BodyDay 自撰并标注权威来源 |
-| **Human Atlas（`ashemag/human-atlas`）** | 代码 MIT、几何 BodyParts3D 为 CC BY 4.0；其 `app/explosion-layout.ts` + `app/scene.tsx` 提供真实网格的二维投影打包与 `explode` 位移 | **本次未移植**：其渲染栈为 three ^0.159 且不使用 R3F，与本源工程的 three 0.186 / R3F 9 不兼容；仓库约 154 MB、模型约 90 MB，且使用另一套 BodyParts3D ID 体系，无法与 Z-Anatomy 的 ID 混用。10/18 交付前无法在 90 分钟止损窗口内完成可维护移植（详见交付手册的路线 A / 路线 B 决策记录） |
+| **Human Atlas（`ashemag/human-atlas`）** | 许可**已核实可复用**：代码 `LICENSE` = **MIT License（© 2026 ashemag）**；模型 `public/ATTRIBUTION.md` = **BodyParts3D, © The Database Center for Life Science, CC Attribution 4.0 International**（另见 https://dbarchive.biosciencedbc.jp/en/bodyparts3d/lic.html）。其 `app/explosion-layout.ts` + `app/scene.tsx` 提供真实网格的前视投影二维打包与 `explode` 位移 | **本次未移植**（原因是工程与时间，不是许可）：其渲染栈为 three ^0.159 且不使用 React Three Fiber，与本工程的 three 0.186 / R3F 9 不兼容；仓库与模型体量大（模型约 33 MB 压缩几何）；使用另一套 BodyParts3D ID 体系，**严禁**与 Z-Anatomy 的结构 ID 混用。10/18 交付窗口内替换主舞台属「全有或全无」，按施工手册的止损规则保留现有引擎，并如实标注未实现二维平面打包 |
+| **Anatomy（`thebuggeddev/anatomy`）** | **许可未确认 ⇒ 未复制**：GitHub API 列出的仓库根目录文件清单中**没有任何 LICENSE / COPYING 文件**，`package.json` 亦未声明源代码许可，其 `public/models/*.glb` 的资产许可同样未核实。公开可读不等于允许复制、修改与再分发 | **不采用其代码与模型资产**。器官详解改由本工程**已合法分发的 Z-Anatomy 几何（CC BY-SA 4.0）** + 自行撰写的中文内容实现同等流程；其九器官名单（心/脑/肺/肝/肾/眼/肠/胰腺/皮肤）仅作为**目标能力参考**，不复制实现 |
 
 > 上述评估的完整记录见 `docs/REFERENCE_ADOPTION.md`。
 
