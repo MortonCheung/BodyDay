@@ -103,6 +103,9 @@ const center = { x: stageBox.x + stageBox.width / 2, y: stageBox.y + stageBox.he
   }
   await page.waitForTimeout(900);
   const afterDown = (await readStage()).probe.progress;
+  /* 就在「向下滚到最深处」这一刻读数：拆解态真实可见网格数与外壳不透明度 */
+  const explodedSnap = (await readStage()).probe;
+  await page.screenshot({ path: `${SHOTS}/test-B-exploded.png` });
   for (let step = 0; step < 3; step += 1) {
     await page.mouse.wheel(0, -120);
     await page.waitForTimeout(180);
@@ -117,6 +120,9 @@ const center = { x: stageBox.x + stageBox.width / 2, y: stageBox.y + stageBox.he
   report.tests.B = {
     before: Number(before.toFixed(3)),
     afterScrollDown: Number(afterDown.toFixed(3)),
+    /* 拆解态实测值（取自向下滚到底的那一刻，不做算术推断） */
+    visibleMeshesExploded: explodedSnap.visibleMeshes,
+    shellOpacityExploded: explodedSnap.shellOpacity,
     afterScrollUp: Number(afterUp.toFixed(3)),
     explodedOnDown: afterDown > before,
     reassembledOnUp: afterUp < afterDown,

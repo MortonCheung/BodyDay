@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:5173",
-  "startedAt": "2026-10-17T17:04:28.300Z",
+  "startedAt": "2026-10-18T03:21:15.407Z",
   "tests": {
     "A": {
       "visibleMeshes": 967,
@@ -30,6 +30,8 @@
     "B": {
       "before": 0,
       "afterScrollDown": 0.42,
+      "visibleMeshesExploded": 734,
+      "shellOpacityExploded": 0,
       "afterScrollUp": 0.21,
       "explodedOnDown": true,
       "reassembledOnUp": true,
@@ -166,6 +168,8 @@
       "detail": {
         "before": 0,
         "afterScrollDown": 0.42,
+        "visibleMeshesExploded": 734,
+        "shellOpacityExploded": 0,
         "afterScrollUp": 0.21,
         "explodedOnDown": true,
         "reassembledOnUp": true,
@@ -284,5 +288,5 @@
       }
     }
   ],
-  "finishedAt": "2026-10-17T17:05:30.258Z"
+  "finishedAt": "2026-10-18T03:22:18.548Z"
 }
