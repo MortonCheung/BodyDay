@@ -20,13 +20,19 @@ import type { Scale } from '../domain';
  *  09 /cell/neuron                   神经元
  *  10 /cell/leukocyte                白细胞
  *  11 /about                         关于 · 数据与方法
+ *  12 /explore                       人体探索（主导航；与 /body 等价）
+ *  13–15 /detail/heart|brain|lungs   器官详解（仅已核实几何存在的器官）
  */
 export const ROUTES = {
   cover: '/',
+  /** 主导航「人体探索」：唯一的人体工作台（`/body` 保留为等价深链） */
+  explore: '/explore',
   body: '/body',
   system: (id: string) => `/systems/${id}`,
   organ: (id: string) => `/organ/${id}`,
   cell: (id: string) => `/cell/${id}`,
+  /** 主导航「器官详解」：只接受本工程已核实几何真实存在的器官 */
+  detail: (id: string) => `/detail/${id}`,
   about: '/about',
 } as const;
 
@@ -51,6 +57,10 @@ export const PAGE_INDEX: PageIndexEntry[] = [
   { no: '09', title: '神经元', path: '/cell/neuron', scale: 'cell', summary: '在细胞层查看胞体、树突、轴突与髓鞘，点选部件联动知识。' },
   { no: '10', title: '白细胞', path: '/cell/leukocyte', scale: 'cell', summary: '在细胞层查看细胞膜、细胞质与细胞核，澄清白细胞的生成与到达方式。' },
   { no: '11', title: '关于 · 数据与方法', path: '/about', scale: 'body', summary: '作品定位、数据来源、科学方法、模型与许可、科学示意边界说明，以及全部页面的可核查索引。' },
+  { no: '12', title: '人体探索', path: '/explore', scale: 'body', summary: '主导航「人体探索」的正式入口；与首页进入后的完整人体工作台等价，可直接深链打开。' },
+  { no: '13', title: '器官详解 · 心脏', path: '/detail/heart', scale: 'organ', summary: '镜头聚焦并隔离心脏；右栏只讲当前器官本身，并提供返回探索。' },
+  { no: '14', title: '器官详解 · 大脑', path: '/detail/brain', scale: 'organ', summary: '镜头聚焦并隔离端脑；右栏只讲当前器官本身，并提供返回探索。' },
+  { no: '15', title: '器官详解 · 肺', path: '/detail/lungs', scale: 'organ', summary: '镜头聚焦并隔离肺；右栏按真实空间/结构事实说明左右分叶与气体交换作用。' },
 ];
 
 /** 实体 → 可直达的页面路径（用于跨尺度跳转与引导步骤定位） */

@@ -63,3 +63,24 @@ export function buildStructureCard(input: StructureCardInput): StructureCardData
     parent: isPart ? input.name : null,
   };
 }
+
+/**
+ * 标题下的一条简短路径（如「大脑（端脑） · 额叶」）。
+ *
+ * 只在「点到已登记结构内部的局部」、即解剖语义确定时才给出；否则返回 null（整行不渲染）。
+ * 不使用「X 是 Y 的上级」这类自套娃措辞——路径本身只是「上级 · 当前」。
+ */
+export function structureCardPath(card: StructureCardData | null | undefined): string | null {
+  if (!card?.parent) return null;
+  return `${card.parent} · ${card.title}`;
+}
+
+/**
+ * 「这是哪里」的一句话。
+ *
+ * 只用图谱里真实存在的系统归属，缺失就返回 null（整行不渲染），绝不编造作用或健康关系。
+ */
+export function structureCardPlacement(card: StructureCardData | null | undefined): string | null {
+  if (card?.system) return `位于${card.system}。`;
+  return null;
+}

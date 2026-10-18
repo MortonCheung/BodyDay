@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:5173",
-  "startedAt": "2026-10-18T03:21:15.407Z",
+  "startedAt": "2026-10-18T04:22:39.514Z",
   "tests": {
     "A": {
       "visibleMeshes": 967,
@@ -20,10 +20,8 @@
         "distance": 3.0515
       },
       "navItems": [
-        "身体",
-        "系统",
-        "器官",
-        "细胞",
+        "人体探索",
+        "器官详解",
         "关于"
       ]
     },
@@ -46,7 +44,7 @@
     "C": {
       "focusTargetId": "body-shell",
       "selected": true,
-      "paperTitle": "人体总览",
+      "paperTitle": "体表（皮肤）",
       "visibleMeshesBefore": 967,
       "visibleMeshesAfter": 967,
       "othersStillVisible": true,
@@ -101,23 +99,19 @@
     "E": {
       "brainVisibleMeshes": 169,
       "brainDrill": [
-        "查看神经系统",
-        "进入神经元"
+        "查看器官详解 →"
       ],
-      "neuronReached": true,
+      "organDetailReached": true,
       "spleenDrill": [
-        "查看淋巴系统",
-        "查看白细胞"
+        "查看器官详解 →"
       ],
       "spleenPageTitle": "脾脏",
       "canvasCount": 1
     },
     "F": {
       "navItems": [
-        "身体",
-        "系统",
-        "器官",
-        "细胞",
+        "人体探索",
+        "器官详解",
         "关于"
       ],
       "hasScaleAxis": false,
@@ -155,10 +149,8 @@
           "distance": 3.0515
         },
         "navItems": [
-          "身体",
-          "系统",
-          "器官",
-          "细胞",
+          "人体探索",
+          "器官详解",
           "关于"
         ]
       }
@@ -187,7 +179,7 @@
       "detail": {
         "focusTargetId": "body-shell",
         "selected": true,
-        "paperTitle": "人体总览",
+        "paperTitle": "体表（皮肤）",
         "visibleMeshesBefore": 967,
         "visibleMeshesAfter": 967,
         "othersStillVisible": true,
@@ -248,13 +240,11 @@
       "detail": {
         "brainVisibleMeshes": 169,
         "brainDrill": [
-          "查看神经系统",
-          "进入神经元"
+          "查看器官详解 →"
         ],
-        "neuronReached": true,
+        "organDetailReached": true,
         "spleenDrill": [
-          "查看淋巴系统",
-          "查看白细胞"
+          "查看器官详解 →"
         ],
         "spleenPageTitle": "脾脏",
         "canvasCount": 1
@@ -264,10 +254,8 @@
       "step": "F UI 结构",
       "detail": {
         "navItems": [
-          "身体",
-          "系统",
-          "器官",
-          "细胞",
+          "人体探索",
+          "器官详解",
           "关于"
         ],
         "hasScaleAxis": false,
@@ -288,5 +276,5 @@
       }
     }
   ],
-  "finishedAt": "2026-10-18T03:22:18.548Z"
+  "finishedAt": "2026-10-18T04:23:41.118Z"
 }

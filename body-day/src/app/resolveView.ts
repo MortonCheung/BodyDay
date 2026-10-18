@@ -1,4 +1,5 @@
 import { SYSTEM_MAP } from '../domain';
+import { VERIFIED_ORGAN_IDS } from '../integrations/organBridge';
 
 /**
  * 把 URL 解析成工作台视图。
@@ -15,6 +16,7 @@ export type ViewKind =
   | 'system'
   | 'organ'
   | 'cell'
+  | 'detail'
   | 'about'
   | 'notfound';
 
@@ -24,7 +26,7 @@ export interface ResolvedView {
   path: string;
   /** BodyDay 系统 ID（kind === 'system'） */
   systemId?: string;
-  /** 器官 ID：brain / heart / spleen（kind === 'organ'） */
+  /** 器官 ID（kind === 'organ'：brain / heart / spleen；kind === 'detail'：heart / brain / lungs / spleen） */
   organId?: string;
   /** 细胞 ID：neuron / leukocyte（kind === 'cell'） */
   cellId?: 'neuron' | 'leukocyte';
@@ -44,7 +46,7 @@ export function resolveView(pathname: string): ResolvedView {
   const segments = path.split('/').filter(Boolean);
 
   if (segments.length === 1) {
-    if (segments[0] === 'body') return { kind: 'body', path: '/body' };
+    if (segments[0] === 'body' || segments[0] === 'explore') return { kind: 'body', path };
     if (segments[0] === 'about') return { kind: 'about', path: '/about' };
   }
 
@@ -55,6 +57,9 @@ export function resolveView(pathname: string): ResolvedView {
     }
     if (head === 'organ' && ORGAN_IDS.has(id)) {
       return { kind: 'organ', path, organId: id };
+    }
+    if (head === 'detail' && VERIFIED_ORGAN_IDS.includes(id)) {
+      return { kind: 'detail', path, organId: id };
     }
     if (head === 'cell' && CELL_IDS.has(id)) {
       return { kind: 'cell', path, cellId: id as 'neuron' | 'leukocyte' };

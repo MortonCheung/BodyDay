@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:5173",
-  "startedAt": "2026-10-17T17:05:30.568Z",
+  "startedAt": "2026-10-18T04:21:55.991Z",
   "tests": {
     "entry": {
       "controlCount": 1,
@@ -20,39 +20,27 @@
       }
     },
     "enter": {
-      "hash": "#/body",
+      "hash": "#/explore",
       "coverGone": true,
       "navItems": [
-        "身体",
-        "系统",
-        "器官",
-        "细胞",
+        "人体探索",
+        "器官详解",
         "关于"
       ],
-      "navCount": 5
+      "navCount": 3
     },
     "genericCard": {
       "explodeProgress": 0.56,
       "titles": [
-        "人体总览",
         "Tibiar"
       ],
-      "fields": [
-        "结构类别",
-        "所属系统",
-        "图谱来源"
-      ],
-      "values": [
-        "解剖结构",
-        "骨骼系统",
-        "Z-Anatomy 1.4.0（CC BY-SA 4.0）·来源与许可"
-      ],
+      "fields": [],
+      "values": [],
       "defensiveWording": false,
       "bodyCardStillBelow": false
     },
     "partCard": {
       "titles": [
-        "大脑",
         "大脑"
       ],
       "fields": [
@@ -97,16 +85,14 @@
     {
       "step": "2 进入与五项顶栏",
       "detail": {
-        "hash": "#/body",
+        "hash": "#/explore",
         "coverGone": true,
         "navItems": [
-          "身体",
-          "系统",
-          "器官",
-          "细胞",
+          "人体探索",
+          "器官详解",
           "关于"
         ],
-        "navCount": 5
+        "navCount": 3
       }
     },
     {
@@ -114,19 +100,10 @@
       "detail": {
         "explodeProgress": 0.56,
         "titles": [
-          "人体总览",
           "Tibiar"
         ],
-        "fields": [
-          "结构类别",
-          "所属系统",
-          "图谱来源"
-        ],
-        "values": [
-          "解剖结构",
-          "骨骼系统",
-          "Z-Anatomy 1.4.0（CC BY-SA 4.0）·来源与许可"
-        ],
+        "fields": [],
+        "values": [],
         "defensiveWording": false,
         "bodyCardStillBelow": false
       }
@@ -135,7 +112,6 @@
       "step": "4 局部结构卡",
       "detail": {
         "titles": [
-          "大脑",
           "大脑"
         ],
         "fields": [
@@ -162,5 +138,5 @@
       }
     }
   ],
-  "finishedAt": "2026-10-17T17:06:02.690Z"
+  "finishedAt": "2026-10-18T04:22:29.431Z"
 }

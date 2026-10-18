@@ -19,6 +19,8 @@ export const ATLAS_STRUCTURE_IDS = {
   brainstem: 'brainstem',
   heart: 'heart',
   spleen: 'spleen',
+  /** 肺：GLB 中 5 个肺叶网格以 anatomyParentId=lungs 归属（anatomySystem=respiratory） */
+  lungs: 'lungs',
 } as const;
 
 export type AtlasStructureId = (typeof ATLAS_STRUCTURE_IDS)[keyof typeof ATLAS_STRUCTURE_IDS];
@@ -77,7 +79,11 @@ export const ORGAN_STRUCTURE_IDS: string[] = Object.keys(ORGAN_STRUCTURE_ENTITY)
  * 既符合解剖层级（体表本就是一层结构），也让高亮落在能看懂的轮廓上。
  * 注意体表没有独立的科普卡片，界面会如实说明，而不是编一段内容。
  */
-export const FOREGROUND_STRUCTURE_IDS: string[] = [...ORGAN_STRUCTURE_IDS, ATLAS_STRUCTURE_IDS.bodyShell];
+export const FOREGROUND_STRUCTURE_IDS: string[] = [
+  ...ORGAN_STRUCTURE_IDS,
+  ATLAS_STRUCTURE_IDS.lungs,
+  ATLAS_STRUCTURE_IDS.bodyShell,
+];
 
 /**
  * 已登记结构在界面上的中文名。
@@ -93,6 +99,7 @@ export const STRUCTURE_LABELS: Record<string, string> = {
   [ATLAS_STRUCTURE_IDS.brainstem]: '脑干',
   [ATLAS_STRUCTURE_IDS.heart]: '心脏',
   [ATLAS_STRUCTURE_IDS.spleen]: '脾脏',
+  [ATLAS_STRUCTURE_IDS.lungs]: '肺',
 };
 
 export function entityForStructure(structureId: string | null | undefined): string | null {

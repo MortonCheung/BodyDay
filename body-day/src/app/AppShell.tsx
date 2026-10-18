@@ -22,17 +22,16 @@ import { StartupCover } from '../features/startup/StartupCover';
  */
 
 /**
- * 五项顶栏：身体 / 系统 / 器官 / 细胞 / 关于。
+ * 三项主导航：人体探索 / 器官详解 / 关于。
  *
- * 每一项都落到**真实存在**的路由（10–20 个可独立打开的页面要求），
- * 不做「首页」这类重复入口——封面 `#/` 由左上角的 BodyDay 回到。
- * 系统与器官的默认页取已有详尽科普的项（神经系统 / 大脑），不虚构专门页面。
+ * 每一项都落到**真实存在**的路由（官方 10–20 个可直达页面要求）：
+ * 人体探索即人体工作台；器官详解进入一个已核实几何真实存在的器官；
+ * 关于是方法页。封面 `#/` 由左上角 BodyDay 回到 `#/explore`（不是另一具人体首页）。
+ * 取消原有的五项目录与任何模式切换。
  */
 const NAV: { label: string; to: string; kinds: ViewKind[] }[] = [
-  { label: '身体', to: ROUTES.body, kinds: ['body'] },
-  { label: '系统', to: ROUTES.system('nervous-system'), kinds: ['system'] },
-  { label: '器官', to: ROUTES.organ('brain'), kinds: ['organ'] },
-  { label: '细胞', to: ROUTES.cell('neuron'), kinds: ['cell'] },
+  { label: '人体探索', to: ROUTES.explore, kinds: ['body'] },
+  { label: '器官详解', to: ROUTES.detail('heart'), kinds: ['detail'] },
   { label: '关于', to: ROUTES.about, kinds: ['about'] },
 ];
 
@@ -47,33 +46,29 @@ export function AppShell() {
     if (view.kind === 'notfound') navigate(ROUTES.cover, { replace: true });
   }, [view.kind, navigate]);
 
-  /* 点击「进入探索」之后落到人体总览（`#/body`），入口本身不再留在地址栏里 */
+  /* 点击「进入探索」之后落到人体工作台（`#/explore`），入口本身不再留在地址栏里 */
   useEffect(() => {
     if (gateActive && phase === 'exploring' && view.kind === 'cover') {
-      navigate(ROUTES.body, { replace: true });
+      navigate(ROUTES.explore, { replace: true });
     }
   }, [gateActive, phase, view.kind, navigate]);
 
-  /* 纸张式页面过渡：只作用于纸条，不动中央舞台 */
+  /* 统一路由过渡：只淡入一层主体，不再对多张纸张做 clipPath 动画 */
   const mainRef = useRef<HTMLElement>(null);
   const lastKey = useRef('');
   useEffect(() => {
     if (lastKey.current === view.path) return;
     const isFirst = lastKey.current === '';
     lastKey.current = view.path;
-    if (isFirst || prefersReducedMotion()) return;
-    const surfaces = mainRef.current?.querySelectorAll<HTMLElement>('[data-paper-surface]');
-    surfaces?.forEach((surface, index) => {
-      surface.animate(
-        [{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0 0)' }],
-        {
-          duration: 420,
-          delay: index * 60,
-          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          fill: 'backwards',
-        },
-      );
-    });
+    const surface = mainRef.current;
+    if (isFirst || prefersReducedMotion() || !surface) return;
+    surface.animate(
+      [
+        { opacity: 0, transform: 'translateY(8px)' },
+        { opacity: 1, transform: 'translateY(0)' },
+      ],
+      { duration: 420, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+    );
   }, [view.path]);
 
   const blocked = gateActive && phase !== 'exploring';
@@ -84,7 +79,7 @@ export function AppShell() {
       <div className="bd-shell" inert={blocked} aria-hidden={blocked}>
         <header className="bd-header">
           <div className="bd-header__inner">
-            <Link className="bd-wordmark" to={ROUTES.cover} aria-label="BodyDay 首页">
+            <Link className="bd-wordmark" to={ROUTES.explore} aria-label="BodyDay 人体探索">
               BodyDay
               <span className="bd-wordmark__sub">身体的一天</span>
             </Link>
@@ -119,8 +114,8 @@ export function AppShell() {
                     <button type="button" className="bd-button" onClick={reset}>
                       重试
                     </button>
-                    <Link className="bd-button bd-button--primary" to={ROUTES.body}>
-                      回到人体总览
+                    <Link className="bd-button bd-button--primary" to={ROUTES.explore}>
+                      回到人体探索
                     </Link>
                   </div>
                   <p className="bd-caption">{error.message}</p>

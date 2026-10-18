@@ -221,12 +221,13 @@ const center = { x: stageBox.x + stageBox.width / 2, y: stageBox.y + stageBox.he
   await page.goto(`${BASE}/#/organ/brain`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(3000);
   const brain = await readStage();
-  const neuronLink = page.locator('.bd-drill a', { hasText: '神经元' }).first();
-  let neuronReached = false;
-  if (await neuronLink.count()) {
-    await neuronLink.click();
+  /* 10/18 起右栏只有唯一的跨页入口「查看器官详解 →」（手册 §4）：从脑页点它应落到 /detail/brain */
+  const detailLink = page.locator('.bd-drill a', { hasText: '查看器官详解' }).first();
+  let organDetailReached = false;
+  if (await detailLink.count()) {
+    await detailLink.click();
     await page.waitForTimeout(2600);
-    neuronReached = page.url().includes('/cell/neuron');
+    organDetailReached = page.url().includes('/detail/brain');
   }
   await page.goto(`${BASE}/#/organ/spleen`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2600);
@@ -234,7 +235,7 @@ const center = { x: stageBox.x + stageBox.width / 2, y: stageBox.y + stageBox.he
   report.tests.E = {
     brainVisibleMeshes: brain.probe?.visibleMeshes ?? null,
     brainDrill: brain.drillLinks,
-    neuronReached,
+    organDetailReached,
     spleenDrill: spleen.drillLinks,
     spleenPageTitle: spleen.paperTitle,
     canvasCount: spleen.canvasCount,
