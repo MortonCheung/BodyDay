@@ -6,20 +6,23 @@
 > 本版为 **V2 口径**：产品形态是「以中央唯一真实三维人体为入口的空间工作台」，
 > 人体模型随作品发布（本地加载，离线可跑）。
 > **V2.1（2026-10-16）**：交互改为**滚轮驱动拆解**、选中为**高亮 + 其余淡化**、取消选中**恢复原视角**、默认人体**中性化公开展示**。
+> **2026-10-18 增量修订（本版）**：主导航收敛为**三项（人体探索 / 器官详解 / 关于）**，旧「五项层级导航（身体 / 系统 / 器官 / 细胞 / 关于）」与「自由探索 / 引导教学」双模式已删除；右信息栏收敛为**「当前对象」**（通用结构卡 / 已登记实体科普卡）；H5 可直达页面共 **16 页**；门禁为 tsc 0 / oxlint **0 error · 14 warning** / vitest **90/90** / `npm run build` 成功；演示视频为 `demo/BodyDay_最终演示.mp4`（时长以 `demo/VIDEOCRAFT_PRODUCTION_LOG.md` 的 ffprobe 实测为准；本机**不存在 VideoCraft skill**，按施工手册 §9.1 采用真实浏览器录屏 + 本地 ffmpeg 剪辑）。
 
 ## 1. 目录结构
 
 ```
 delivery/
   README_DELIVERY.md            交付内容总索引（本文件）
-  H5_PAGE_INDEX.md              11 个页面清单、逐页实测数据与截图索引
+  H5_PAGE_INDEX.md              16 个页面清单、逐页实测数据与截图索引
   RELEASE_STATUS.md             P0 完成度、未完成项、必须人工处理的事项
-  TEST_REPORT.md                四道门禁真实输出 + 70 项单测明细 + 11 页浏览器验收与 V2.1 交互实测（A–G）
+  TEST_REPORT.md                四道门禁真实输出 + 90 项单测明细 + 16 页浏览器验收与交互实测（A–G）
   FINAL_DELIVERY_REPORT.md      最终交付报告（完成情况、验证结果、交付物位置、14 张截图索引）
   LICENSE_AND_CREDITS.md        第三方资源、许可、署名与原创性声明
   DELIVERY_CHECKLIST.md         提交前检查清单（含未完成项区块与学校/平台人工环节）
   demo/
-    bodyday-v2-walkthrough.mp4  体验录像（81 秒，1440×900，H.264，真实浏览器连续录制，用真实滚轮逐层拆解）
+    BodyDay_最终演示.mp4        最终演示成片（1920×1080，H.264，真实浏览器录屏，≤8 分钟；时长以 VIDEOCRAFT_PRODUCTION_LOG.md 的 ffprobe 实测为准）
+    VIDEOCRAFT_PRODUCTION_LOG.md  演示视频制作日志（含 ffprobe 实测时长）
+    bodyday-v2-walkthrough.mp4  上一轮版本录像（已被 BodyDay_最终演示.mp4 取代）
     DEMO_VIDEO_SCRIPT.md        演示视频分镜、口播文本、录制检查清单（重录 / 补录用）
   docs/
     ARCHITECTURE.md             架构说明（与工程内 body-day/docs/ARCHITECTURE.md 对应）
@@ -42,8 +45,8 @@ delivery/
 - **源码包** = 可运行工程本体（仓库中的 `body-day/`）。**含** `public/models/` 下的整具人体解剖模型
   （`z-anatomy-1.4.0-full-body.glb`，CC BY-SA 4.0）、构建脚本、配置与依赖说明；
   **排除** `node_modules`、`dist/` 构建缓存与编辑器临时文件。交付包内以 `source/` 与 `source-archive.zip` 提供。
-- **比赛交付包** = 源码包 **+** 《作品开发文档》（`.md` + `.docx`）**+** 14 张真实截图 **+** 演示视频
-  （`demo/bodyday-v2-walkthrough.mp4`）**+** 作品说明 **+** 版权与科学来源材料
+- **比赛交付包** = 源码包 **+** 《作品开发文档》（`.md` + `.docx`）**+** 真实截图 **+** 演示视频
+  （`demo/BodyDay_最终演示.mp4`）**+** 作品说明 **+** 版权与科学来源材料
   （`LICENSE_AND_CREDITS.md`、`docs/SOURCES.md`）。
 - **两者用途不同**：源码包供评审复现工程；比赛交付包用于平台提交。**不要把两者混为一个巨大压缩包。**
 
@@ -62,18 +65,18 @@ delivery/
 
 | 赛事要求 | 交付物 | 状态 |
 |---|---|---|
-| H5 页面 ≥ 10 页（含封面封底），≤ 20 页 | `H5_PAGE_INDEX.md`（11 页）+ `test-evidence/screenshots/`（14 张，V2.1 重新采集） | ✅ 11 页全部实测可访问 |
+| H5 页面 ≥ 10 页（含封面封底），≤ 20 页 | `H5_PAGE_INDEX.md`（**16 页**）+ `test-evidence/screenshots/` | ✅ **16 页**全部实测可访问 |
 | 能正确显示的网址链接 | 见 §3「运行方式」；HashRouter 保证直接粘贴与刷新可用 | ✅ 本地与静态部署均可 |
 | 源程序 | `source/`、`source-archive.zip`（含 `public/models` 下的解剖模型） | ✅ 可安装、可构建、可启动 |
-| ≤ 8 分钟演示视频 | `demo/bodyday-v2-walkthrough.mp4`（**81 秒**，分镜见 `demo/DEMO_VIDEO_SCRIPT.md`） | ✅ **已按 V2.1 重录**（真实浏览器连续录制，用真实滚轮逐层拆解） |
+| ≤ 8 分钟演示视频 | `demo/BodyDay_最终演示.mp4`（1920×1080，H.264；时长以 `demo/VIDEOCRAFT_PRODUCTION_LOG.md` 的 ffprobe 实测为准；分镜见 `demo/DEMO_VIDEO_SCRIPT.md`） | ✅ 真实浏览器录屏成片（本机**不存在 VideoCraft skill**，按施工手册 §9.1 采用录屏 + 本地 ffmpeg 剪辑） |
 | 附件 1-5《作品开发文档》 | `docs/作品开发文档.md`（源）+ `docs/作品开发文档.docx` | ✅ 两种格式均已生成 |
 | 第三方版权说明 | `LICENSE_AND_CREDITS.md` | ✅ 含具体许可、署名义务与再分发条款 |
 
 ## 5. 一句话说明作品是什么
 
 BodyDay 是一件**跨尺度**的交互式健康科普作品：中央始终是**同一具可以转动的真实三维人体**，
-右侧是随选中联动的知识纸条；用户点模型上的结构即可聚焦、隔离、逐层拆解，
-人体 → 系统 → 器官 → 细胞之间的差别只体现为**镜头与纸条内容的变化**。
+右侧是随选中联动的**「当前对象」**信息栏；用户点模型上的结构即可聚焦、隔离、逐层拆解，
+人体 → 系统 → 器官 → 细胞之间的差别只体现为**镜头与右栏内容的变化**。
 所有科学关系都写明类型与依据，作品明确拒绝「所有器官 → 任意细胞」的兜底关系。
 
 ## 6. 必须由人工完成的事项

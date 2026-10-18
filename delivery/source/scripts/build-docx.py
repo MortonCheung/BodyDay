@@ -6,7 +6,8 @@
 （此前它只在临时目录里，临时目录被系统清理后就丢了，所以正式收进仓库。）
 
 - 标题 / 段落 / 无序列表 / 引用 / 表格 / 图片 全部映射到 Word 原生结构
-- 中文正文设为「等线」，代码用等宽字体，表格用 Table Grid
+- 正文五号宋体（10.5pt），各级标题黑体（一级 16 / 二级 14 / 三级 12 / 四级 11），
+  表格内文字宋体 9pt，代码用等宽字体，表格用 Table Grid
 - 正文之后追加「附录 · 页面截图」，逐张嵌入 delivery/test-evidence/screenshots/*.png
 
 用法：python3 body-day/scripts/build-docx.py [输入.md] [输出.docx]
@@ -24,7 +25,8 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-BODY_FONT = "等线"
+BODY_FONT = "宋体"
+HEADING_FONT = "黑体"
 MONO_FONT = "Consolas"
 
 CAPTIONS = {
@@ -143,9 +145,9 @@ def main():
 
     doc = Document()
     set_style_font(doc.styles["Normal"], BODY_FONT, Pt(10.5))
-    for name, size in (("Title", 22), ("Heading 1", 16), ("Heading 2", 13.5), ("Heading 3", 12), ("Heading 4", 11)):
+    for name, size in (("Title", 22), ("Heading 1", 16), ("Heading 2", 14), ("Heading 3", 12), ("Heading 4", 11)):
         if name in [style.name for style in doc.styles]:
-            set_style_font(doc.styles[name], BODY_FONT, Pt(size), bold=True, color=RGBColor(0x1A, 0x19, 0x17))
+            set_style_font(doc.styles[name], HEADING_FONT, Pt(size), bold=True, color=RGBColor(0x1A, 0x19, 0x17))
 
     lines = source.read_text(encoding="utf-8").splitlines()
     table_rows = []

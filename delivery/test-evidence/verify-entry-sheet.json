@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:5173",
-  "startedAt": "2026-10-18T04:29:14.491Z",
+  "startedAt": "2026-10-18T04:51:36.946Z",
   "tests": {
     "entry": {
       "controlCount": 1,
@@ -10,14 +10,50 @@
       },
       "sameNode": true,
       "disabledWhileMorphing": true,
-      "morphingBox": {
+      "morphFrameBox": {
         "width": 240,
         "height": 3
+      },
+      "morphingBox": {
+        "width": 148,
+        "height": 44
       },
       "settledBox": {
         "width": 148,
         "height": 44
-      }
+      },
+      "trace": [
+        {
+          "stage": "init",
+          "ready": "false",
+          "settled": "false",
+          "disabled": true,
+          "box": {
+            "width": 240,
+            "height": 3
+          }
+        },
+        {
+          "stage": "mutation",
+          "ready": "true",
+          "settled": "false",
+          "disabled": true,
+          "box": {
+            "width": 240,
+            "height": 3
+          }
+        },
+        {
+          "stage": "mutation",
+          "ready": "true",
+          "settled": "true",
+          "disabled": false,
+          "box": {
+            "width": 240,
+            "height": 3
+          }
+        }
+      ]
     },
     "enter": {
       "hash": "#/explore",
@@ -72,18 +108,54 @@
         },
         "sameNode": true,
         "disabledWhileMorphing": true,
-        "morphingBox": {
+        "morphFrameBox": {
           "width": 240,
           "height": 3
+        },
+        "morphingBox": {
+          "width": 148,
+          "height": 44
         },
         "settledBox": {
           "width": 148,
           "height": 44
-        }
+        },
+        "trace": [
+          {
+            "stage": "init",
+            "ready": "false",
+            "settled": "false",
+            "disabled": true,
+            "box": {
+              "width": 240,
+              "height": 3
+            }
+          },
+          {
+            "stage": "mutation",
+            "ready": "true",
+            "settled": "false",
+            "disabled": true,
+            "box": {
+              "width": 240,
+              "height": 3
+            }
+          },
+          {
+            "stage": "mutation",
+            "ready": "true",
+            "settled": "true",
+            "disabled": false,
+            "box": {
+              "width": 240,
+              "height": 3
+            }
+          }
+        ]
       }
     },
     {
-      "step": "2 进入与五项顶栏",
+      "step": "2 进入与三项主导航",
       "detail": {
         "hash": "#/explore",
         "coverGone": true,
@@ -138,5 +210,5 @@
       }
     }
   ],
-  "finishedAt": "2026-10-18T04:29:43.307Z"
+  "finishedAt": "2026-10-18T04:52:15.469Z"
 }

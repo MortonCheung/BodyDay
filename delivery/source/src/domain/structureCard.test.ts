@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildStructureCard } from './structureCard';
+import { buildStructureCard, structureCardPath, structureCardPlacement } from './structureCard';
 
 /**
  * 通用结构卡的边界：只输出真实字段，缺失即省略，绝不编造、绝不留防御性文案。
@@ -87,5 +87,48 @@ describe('buildStructureCard', () => {
     expect(
       buildStructureCard({ ...base, name: null, partName: null, system: null, entityKind: null }),
     ).toBeNull();
+  });
+});
+
+describe('卡片派生：路径与「这是哪里」', () => {
+  it('局部结构才给出一条「上级 · 当前」路径，不自套娃', () => {
+    const part = buildStructureCard({
+      ...base,
+      name: '大脑',
+      partName: '额叶',
+      system: '神经系统',
+      entityKind: 'organ',
+    });
+    expect(structureCardPath(part)).toBe('大脑 · 额叶');
+
+    const solo = buildStructureCard({
+      ...base,
+      name: 'Femur',
+      partName: null,
+      system: '骨骼系统',
+      entityKind: null,
+    });
+    expect(structureCardPath(solo)).toBeNull();
+  });
+
+  it('「这是哪里」只使用真实系统归属，缺失即整行不渲染', () => {
+    const withSystem = buildStructureCard({
+      ...base,
+      name: 'Femur',
+      partName: null,
+      system: '骨骼系统',
+      entityKind: null,
+    });
+    expect(structureCardPlacement(withSystem)).toBe('位于骨骼系统。');
+
+    const noSystem = buildStructureCard({
+      ...base,
+      name: 'Unknown',
+      partName: null,
+      system: null,
+      entityKind: null,
+    });
+    expect(structureCardPlacement(noSystem)).toBeNull();
+    expect(structureCardPlacement(null)).toBeNull();
   });
 });

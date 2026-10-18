@@ -1,0 +1,95 @@
+/**
+ * BodyDay 统一交互动效令牌（手册 §6）。
+ *
+ * 只有一条判据：删掉这段动效，用户是否更难理解「我点了哪里 / 这是不是同一个对象」？
+ * 全部时长与缓动以变量集中定义，组件里不再散落毫秒数。
+ * `prefers-reduced-motion: reduce` 下统一降级为瞬时。
+ */
+:root {
+  --bd-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --bd-ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --bd-hover-ms: 150ms;
+  --bd-press-ms: 100ms;
+  --bd-select-ms: 220ms;
+  --bd-panel-ms: 320ms;
+  --bd-page-ms: 420ms;
+}
+
+/* ---------- 导航：hover ≤2px 位移 + 细线渐变；selected 持续可见下划线 ---------- */
+.bd-nav__item {
+  transition:
+    color var(--bd-hover-ms) var(--bd-ease-out),
+    transform var(--bd-hover-ms) var(--bd-ease-out);
+}
+.bd-nav__item:hover { transform: translateY(-1px); }
+.bd-nav__item::after {
+  transition: transform var(--bd-select-ms) var(--bd-ease-out);
+}
+.bd-nav__item[data-active="true"] { transform: none; }
+
+/* ---------- 焦点：2px 清晰轮廓（键盘可达，全站一致） ---------- */
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--bd-focus);
+  outline-offset: 3px;
+}
+
+/* ---------- 按钮：hover 底色/边框渐变；pressed 轻微缩放；disabled 降对比不可点 ---------- */
+.bd-button {
+  transition:
+    background var(--bd-hover-ms) var(--bd-ease-out),
+    border-color var(--bd-hover-ms) var(--bd-ease-out),
+    color var(--bd-hover-ms) var(--bd-ease-out),
+    transform var(--bd-press-ms) var(--bd-ease-out);
+}
+.bd-button:active:not(:disabled) { transform: scale(0.985); }
+.bd-button:disabled {
+  opacity: 1;
+  color: var(--bd-ink-ghost);
+  border-color: var(--bd-rule-soft);
+  background: transparent;
+  cursor: not-allowed;
+  filter: saturate(0.35);
+}
+
+/* ---------- 左栏 / 列表：hover 与 selected ---------- */
+.bd-list__item {
+  transition:
+    background var(--bd-hover-ms) var(--bd-ease-out),
+    color var(--bd-hover-ms) var(--bd-ease-out);
+}
+.bd-list__mark { transition: transform var(--bd-select-ms) var(--bd-ease-out); }
+
+/* ---------- 右卡片内容替换：同容器文字轻淡入 + Y 4–8px，旧新不同时保留 ---------- */
+.bd-wb-swap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bd-space-6);
+  animation: bd-wb-swap-in var(--bd-select-ms) var(--bd-ease-out);
+}
+@keyframes bd-wb-swap-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- 纸条头部动作区 ---------- */
+.bd-wb-head__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--bd-space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.bd-wb-path {
+  color: var(--bd-ink-muted);
+  font-size: var(--bd-fs-meta);
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-nav__item:hover { transform: none; }
+  .bd-button:active:not(:disabled) { transform: none; }
+  .bd-wb-swap { animation: none; }
+}

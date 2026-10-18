@@ -37,15 +37,22 @@ mkdirSync(VIDEO_DIR, { recursive: true });
 
 const report = { base: BASE, steps: [], shots: [], video: null };
 
+/**
+ * 桌面端拆解已改为**鼠标滚轮直接驱动**（10/18 手册：移除桌面拆解滑杆），
+ * 所以这里用真实滚轮推进，并用页面自报的 `probe.progress` 作为到达判据，
+ * 不依赖任何已移除的滑杆选择器。
+ */
 async function setExplode(page, percent) {
-  await page.evaluate((value) => {
-    const el = document.querySelector('[data-testid="explode-slider"]');
-    if (!el) return;
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    setter.call(el, String(value));
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  }, percent);
-  await page.waitForTimeout(1900);
+  const target = percent / 100;
+  const box = await page.locator('.bd-wb-stage').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let i = 0; i < 80; i += 1) {
+    const p = (await readProbe(page))?.probe?.progress ?? 0;
+    if (p >= target - 0.02) break;
+    await page.mouse.wheel(0, 120);
+    await page.waitForTimeout(170);
+  }
+  await page.waitForTimeout(1500);
 }
 
 const readProbe = (page) => page.evaluate(() => window.__BODYDAY_STAGE__ ?? null);
@@ -56,13 +63,19 @@ async function clickAt(page, point) {
   await page.waitForTimeout(1800);
 }
 
-/** 投影点是包围盒中心，可能落在几何空隙里：小范围尝试，直到「当前选中」区块真的出现操作按钮 */
+/**
+ * 投影点是包围盒中心，可能落在几何空隙里：小范围尝试，直到右栏真的出现
+ * 「当前结构」结构卡或唯一的「查看…详解」入口（10/18 起右栏只剩这两类内容）。
+ */
 async function clickUntilSelected(page, point) {
   const offsets = [[0, 0], [0, 16], [0, -16], [16, 0], [-16, 0], [0, 30], [0, -30]];
   for (const [dx, dy] of offsets) {
     await clickAt(page, { x: point.x + dx, y: point.y + dy });
     const ok = await page.evaluate(() =>
-      Boolean(document.querySelector('.bd-wb-paper [aria-label="当前选中"] button')),
+      Boolean(
+        document.querySelector('.bd-wb-paper [aria-label="当前结构"]') ??
+          document.querySelector('.bd-wb-paper .bd-drill a'),
+      ),
     );
     if (ok) return true;
   }

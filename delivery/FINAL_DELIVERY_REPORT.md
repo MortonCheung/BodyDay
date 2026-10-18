@@ -8,8 +8,9 @@
 > **V2.1（2026-10-16）**：赛前最后一轮交互纠偏——交互改为**滚轮驱动拆解**、选中为**高亮 + 其余淡化**、
 > 取消选中**恢复原视角**、默认人体**中性化公开展示**；凡标注「V2.1」处与该轮口径一致。
 > **2026-10-18 增量修订（本版）**：采用**路线 B**（保留自建三维舞台，**未**移植 Human Atlas 拆解引擎，原因见 `FINAL_HANDOFF_20261018.md` §1）；
-> 新增**入口同节点形变**、**五项层级顶栏**、**任意可点选结构真实卡**；门禁更新为 tsc 0 / oxlint **0 error · 13 warning** / vitest **76/76** / vite build 通过（2026-10-18 实测）；
-> 演示视频订正为**约 105 秒**；**🔴 远端推送结果需人工确认**（本地实测 ahead 4）。
+> 新增**入口同节点形变**，右信息栏收敛为**「当前对象」**（通用结构卡 / 已登记实体科普卡）；主导航只有**三项——人体探索（`#/explore`）/ 器官详解（`#/detail/heart`）/ 关于（`#/about`）**；
+> 门禁更新为 tsc **0 错误** / oxlint **0 error · 14 warning** / vitest **90/90** / `npm run build` 通过（2026-10-18 实测）；
+> 演示视频为真实浏览器录屏成片 `delivery/demo/BodyDay_最终演示.mp4`（1920×1080，H.264；时长以 `delivery/demo/VIDEOCRAFT_PRODUCTION_LOG.md` 的 ffprobe 实测为准）；**🔴 远端推送结果需人工确认**（本地实测 ahead 4）。
 
 ## 1. Git 与版本控制
 
@@ -30,23 +31,23 @@
 
 | 项 | 证据 |
 |---|---|
-| **单工作台**：中央唯一真实三维人体 + 右侧一条随选中联动的知识纸条 | `body-day/src/features/workbench/ExploreWorkbench.tsx`、`KnowledgePaper.tsx` |
+| **单工作台**：中央唯一真实三维人体 + 右信息栏**「当前对象」** | `body-day/src/features/workbench/ExploreWorkbench.tsx`、`KnowledgePaper.tsx` |
 | **启动封面闸门**：真实字节进度（31.8 MB）→ 模型就绪 → 手动「进入探索」 | `src/features/startup/StartupCover.tsx`、`src/app/AppProviders.tsx`；状态机 `loading → ready-to-enter → entering → exploring` |
-| **入口同节点形变**（10/18） | 同一个 `<button>` 先为 240×3 px 进度条，就绪后原地形变为 148×44 px「进入探索」，形变完成前 `disabled`；实测 `sameNode = true`（`delivery/test-evidence/verify-entry-sheet.json`） |
-| **五项层级顶栏**（10/18） | 顶栏 = 身体 / 系统 / 器官 / 细胞 / 关于（5 项），均落真实路由；实测 `navCount = 5`（`verify-entry-sheet.json`） |
-| **任意可点选结构真实卡**（10/18） | 未编写科普内容的结构，用图谱真实字段（结构类别 / 所属系统 / 图谱来源）出卡，字段缺失即整行不显示；**无**「尚未编入」防御句、**不再**重复挂「人体」总览卡（`verify-entry-sheet.json`，纯函数 `src/domain/structureCard.ts` + 单测 6 项） |
+| **入口同节点形变**（10/18） | **同一个 DOM 节点**先为 240×3 px 细进度条，就绪后原地形变为约 148×44 px「进入探索」按钮；形变完成（`data-settled="true"`）前 `disabled`，100% 由真实资源就绪触发、非假倒计时；实测 `sameNode = true`（`delivery/test-evidence/verify-entry-sheet.json`） |
+| **三项主导航**（10/18） | 主导航 = 人体探索（`#/explore`）/ 器官详解（`#/detail/heart`）/ 关于（`#/about`）；左上角 BodyDay 标识回到人体探索，**不是**第二具人体首页；旧「五项层级顶栏」与「自由探索 / 引导教学」双模式已删除；实测 `navItems` = `["人体探索","器官详解","关于"]`、`navCount = 3`（`verify-v2.json` / `verify-entry-sheet.json`） |
+| **右信息栏只讲当前对象**（10/18） | 顶部标签「当前对象」+ 操作区（「返回上一级」/ 器官详解页的「返回探索」/ 匹配到已核实器官时**唯一**的「查看器官详解 →」）；主体是**通用结构卡**（标题 + 最多一条「大脑 · 额叶」式路径 + 一句真实空间 / 结构说明）或已登记实体科普卡。已**删除**「结构类别 / 所属系统 / 上级结构」字段堆叠、右侧常驻结构目录、尺度轴、秒级时钟、重复「取消选中」按钮与多份「继续深入 / 返回」入口（`src/domain/structureCard.ts`、`src/integrations/organBridge.ts`） |
 | 进入前整个外壳 `inert` 且不可读屏；**不自动进入、不自动淡出**；加载超过 45 s 提示检查网络并可「重新加载」 | 真实浏览器实测（`inert = true`） |
-| 深链 `/body`、`/organ/*`、`/cell/*`、`/about` **不经过封面** | 逐页实测，均直接可达 |
+| 深链 `/body`、`/systems/*`、`/organ/*`、`/cell/*`、`/explore`、`/detail/*`、`/about` **不经过封面** | 逐页实测，均直接可达 |
 | **模型驱动的结构选择**：点选 / 悬停高亮 / 聚焦 / 隔离 / 逐层拆解 / 返回上一级层级栈 | `src/three/FullBodyStage.tsx`；悬停与选中叠加在真实材质自发光上；**V2.1**：选中为**高亮 + 其余淡化**（opacity 0.16 / 外壳 0.10）而非隐藏，取消选中（点空白 / Esc / 返回上一级）**恢复选中前相机视角**（实测误差 0），拖动旋转不再被当点击（位移 > 6px 忽略） |
 | **自建 React Three Fiber 舞台**（Three.js r186 + R3F 9 + Drei 10），已移除 `@vixotic/vanatome-react` | `FullBodyStage.tsx` / `fullBody.ts`；其公开 API 只提供 select/focus/isolate/reset/visibleLayers，无网格位移入口，无法实现真实拆解 |
-| **真实几何拆解**（需求四）：读取 GLB `extras`，按解剖系统分层对真实网格做径向平移 + 体表外壳渐进隐去 | 实测 25% 外壳不透明度 0.316；完全拆解「可见网格数」现有证据 `capture.json` 记录为 **734**、早期文档记录为 748，**⚠️ 数值不一致，🔴 需复核**；位移由进度重算、从不累加。**V2.1**：总览未选中时由**滚轮**逐层拆解 / 反向组装（每格 0.07、钳制 [0,1]，实测 `progress` 0→0.42→0.21）；**桌面端不再显示拆解滑杆**（触屏保留） |
+| **真实几何拆解**（需求四）：读取 GLB `extras`，按解剖系统分层对真实网格做径向平移 + 体表外壳渐进隐去 | 实测 25% 外壳不透明度 0.316；模型规模实测：整具人体 GLB **984 网格**、公开展示过滤 **17**、默认可见 **967**；拆解到 **42%** 时可见 **734**（984 − 17 − 233 外壳 = 734，体表外壳 `body-shell` 实测 **233 网格**）；位移由进度重算、从不累加。未选中结构时由**鼠标滚轮**逐层拆解 / 反向组装（每格 0.07、钳制 [0,1]，实测 `progress` 0→0.42→0.21）；**已移除桌面拆解滑杆**（触屏保留） |
 | **拆解后仍可点选** | 按投影坐标实测：50% 时一次命中心脏、100% 时一次命中脾脏 |
 | **真实器官隔离（器官页·页面级）** | 器官页隔离网格数实测：大脑 169、心脏 4、脾脏 1。**V2.1**：总览选中改为淡化，仅器官页仍整体收起其余结构 |
 | **中性化公开展示（V2.1 新增）** | 默认人体隐去 **17 个网格**（`reproductive` 系统 14 + 体表外壳 `Urogenital region.l/.r` 2 + `Pubic hairs` 1），可见网格 984 → **967**；只过滤系统不够，`GLTFLoader` 节点名清洗后按归一化比较匹配并有单测 |
 | **器官 → 细胞链路** | 大脑→神经元（`extends_to`，按钮「进入神经元」）；脾脏→白细胞（`functional`，按钮「查看白细胞」）；心脏→白细胞（`circulates_through`）**不作下钻入口** |
 | **模型随包发布（离线可用）** | `body-day/public/models/z-anatomy-1.4.0-full-body.glb`（**31,849,556 字节**）；本地就绪实测 0.61–1.24 s |
-| 11 个可独立直达页面全部可访问且渲染成功 | `delivery/H5_PAGE_INDEX.md` + 14 张真实截图 |
-| 简化知识面板（**V2.1** 只保留「所属系统 / 它是什么 / 它如何工作 / 与健康的关系 / 继续深入」，删除尺度轴、时钟、层级目录与 `paperChrome.tsx`） | `KnowledgePaper.tsx` |
+| **16 个**可独立直达页面全部可访问且渲染成功 | `delivery/H5_PAGE_INDEX.md`（16 页）+ `delivery/test-evidence/screenshots/` |
+| 右信息栏收敛为**「当前对象」**（通用结构卡 / 已登记实体科普卡；删除尺度轴、秒级时钟、层级目录、`paperChrome.tsx` 与「结构类别 / 所属系统 / 上级结构」字段堆叠） | `KnowledgePaper.tsx`、`src/domain/structureCard.ts` |
 | 来源归入「关于」 | 文献编号、来源清单、许可长文统一收进 `/about` |
 | **内容资产保留**：`domain/lessons.ts` 的 3 套跨尺度科普脚本（共 29 步）与 6 道带来源检验题 | 作为内容资产保留，不再作为用户必须选择的模式出现 |
 | 错误边界与降级（不白屏） | 应用级 + 舞台级错误边界；WebGL 不可用时文字内容仍可用 |
@@ -73,18 +74,20 @@
 | **肾 / 膀胱专题（V2.1）** | 未新增：真实模型里 `urinary` 仅 3 个网格，不足以支撑专题，只保留基础展示 |
 | 平台提交 / 学校盖章 | **人工环节，未代做，也未声称已提交**（截止 2026-10-18） |
 
-> 演示视频**已重录**：`delivery/demo/bodyday-v2-walkthrough.mp4`（**约 105 秒**，`ffprobe` 实测 duration = 105.4 s，1440×900，H.264，真实浏览器录制）。
-> ⚠️ 旧文档所写「81 秒」为**过期说法**，已订正；软件渲染下成片**不够流畅**，建议在真机 GPU 环境重录。
-> `delivery/demo/DEMO_VIDEO_SCRIPT.md` 保留为需在真实 GPU 机器上**重录 / 补录**的分镜脚本。
+> 演示视频为**真实浏览器录屏成片**：`delivery/demo/BodyDay_最终演示.mp4`（1920×1080，H.264，≤8 分钟）。
+> **时长以 `delivery/demo/VIDEOCRAFT_PRODUCTION_LOG.md` 的 ffprobe 实测为准**（不写具体秒数）。
+> 本机**不存在 VideoCraft skill**，按施工手册 §9.1 采用真实浏览器录屏 + 本地 ffmpeg 剪辑。
+> 旧 `delivery/demo/bodyday-v2-walkthrough.mp4` 属**上一轮版本录像**（已被 `BodyDay_最终演示.mp4` 取代）。
+> `delivery/demo/DEMO_VIDEO_SCRIPT.md` 为**重录 / 补录**用的分镜脚本。
 
 ## 3. 页面数量
 
-**11 个页面**（含首页 `/` 与封底 `/about`），全部实测可独立直达、具有实质内容与独立交互。
+**16 个页面**（含首页 `/` 与封底 `/about`），全部实测可独立直达、具有实质内容与独立交互。
 
-- 除封底外，10 个探索页共用**同一个空间工作台组件**与**同一条右侧知识纸条**，
-  差别只在镜头位置与纸条内容；**没有左侧结构目录**；
+- 页面索引的权威来源是 `body-day/src/app/routes.ts` 的 `PAGE_INDEX`，现为 **16 条**；`/about` 页会渲染「作品的可访问页面（16 页）」。
+- 除封底外，各探索页共用**同一个空间工作台组件**；差别只在镜头位置与右栏内容。桌面三栏：左操作栏（**240–280px**）/ 中央三维（`minmax(0,1fr)`）/ 右信息栏（**300–360px**）；**左操作栏只在整具人体可被筛选的页面出现**（人体探索 / 人体总览 / 系统页），器官页 / 细胞页 / 器官详解页**不出现**左栏；≤1024px 收起左栏回到两栏，≤900px 右栏变为可收起的底部抽屉；
 - 首页 `/` 先出完整封面闸门（暖白，与主界面同一视觉语言），就绪后手动进入；
-- 11 页满足赛事「不少于 10 页（含封面封底）」且远低于「20 页以内」上限；
+- 16 页满足赛事「不少于 10 页（含封面封底）」且仍在「20 页以内」上限；
 - 页面索引同时内置于封底 `/about` 表格，可逐条核对。
 
 ## 4. 验证结果（真实命令与输出）
@@ -94,31 +97,31 @@
 | 门禁 | 命令 | 结果 |
 |---|---|---|
 | 类型检查 | `npx tsc -b` | ✅ **0 错误** |
-| 代码规范 | `npx oxlint` | ✅ **0 error / 13 warning**（`Found 13 warnings and 0 errors`，60 files；均为既有项） |
-| 单元测试 | `npx vitest run` | ✅ **76 / 76 通过**（`structureCard` 6 + `domain` 22 + `fullBody` 29 + `cellGeometry` 19；4 test files 全绿） |
+| 代码规范 | `npx oxlint` | ✅ **0 error / 14 warning**（均为既有项） |
+| 单元测试 | `npx vitest run` | ✅ **90 / 90 通过**（`domain` 22 + `cellGeometry` 19 + `fullBody` 29 + `structureCard` 8 + `organBridge` 12） |
 | 构建 | `npx vite build`（`npm run build` 的构建段） | ✅ **成功**（`✓ built in 313ms`） |
 
 构建产物（真实输出）：
 
 ```
-主包（含探索页外壳）      index-*.js          333.90 kB │ gzip: 106.52 kB
+主包（含探索页外壳）      index-*.js          337.46 kB │ gzip: 107.59 kB
 三维运行时（按需加载）    OrbitControls-*.js  928.08 kB │ gzip: 246.42 kB
 整具人体舞台（按需加载）  FullBodyStage-*.js   85.44 kB │ gzip:  26.49 kB
 细胞舞台（按需加载）      CellStage-*.js       11.16 kB │ gzip:   4.09 kB
-样式                      index-*.css          30.17 kB │ gzip:   6.41 kB
+样式                      index-*.css          32.78 kB │ gzip:   6.84 kB
 ```
 
 ### 4.2 真实浏览器验收
 
 | 项 | 结果 |
 |---|---|
-| 11/11 页逐页验收 | ✅ 全部渲染成功；探索页 `canvas = 1`、封底 `canvas = 0`；**控制台 error 与 pageerror 计数为 0** |
+| 16/16 页逐页验收 | ✅ 全部渲染成功；探索页 `canvas = 1`、关于页 `canvas = 0`；**控制台 error 与 pageerror 计数为 0**（`verify-v2.json` + `verify-entry-sheet.json`，2026-10-18 重出） |
 | 启动闸门 | ✅ 进入前 `inert = true`；就绪耗时 0.61–1.24 s；不自动进入、不自动淡出 |
 | 拆解 | ✅ 实测（`verify-v2.json` 的 B 组）：进度 0 → 0.42 → 0.21，`geometryMoved=true`（真实几何位移）；**42% 时可见网格 734、外壳不透明度 0**（984 − 17 过滤 − 233 外壳 = 734；早前文档写的 748 已作废，以实测 734 为准）；镜头随位移后包围盒联动（3.05 → 3.25） |
 | 拆解后点选 | ✅ 按投影坐标一次命中心脏 / 脾脏 |
 | 移动端视口 390×844 | ✅ 无横向溢出（`scrollWidth = 390 = viewport`） |
 | **V2.1 交互（2026-10-16）** | ✅ 滚轮 0 → 0.42 → 0.21（真实几何位移）、桌面滑杆隐藏；点体表其余结构仍可见（967）且相机聚焦；取消选中恢复误差 0；控制台 error / pageerror 均为 0（`delivery/test-evidence/verify-v2.json`） |
-| **10/18 交互（采集于 2026-10-17）** | ✅ 入口同节点形变（240×3 → 148×44、`sameNode = true`、形变中 `disabled`）；五项顶栏 `navCount = 5`；通用结构卡字段 = `解剖结构 / 骨骼系统 / Z-Anatomy 1.4.0（CC BY-SA 4.0）`、`defensiveWording = false`、`bodyCardStillBelow = false`；控制台 0 error（`delivery/test-evidence/verify-entry-sheet.json`） |
+| **10/18 交互（2026-10-18 重出）** | ✅ 入口同节点形变（240×3 → 148×44、`sameNode = true`、形变前 `disabled`）；三项主导航 `navItems` = `["人体探索","器官详解","关于"]`、`navCount = 3`；右栏「当前对象」的通用结构卡 `defensiveWording = false`、`bodyCardStillBelow = false`；控制台 0 error（`delivery/test-evidence/verify-entry-sheet.json`、`verify-v2.json`） |
 
 ## 5. 交付物位置
 
@@ -127,7 +130,7 @@
 | 交付总索引 | `delivery/README_DELIVERY.md` |
 | 页面索引与实测数据 | `delivery/H5_PAGE_INDEX.md` |
 | 14 张真实运行截图 | `delivery/test-evidence/screenshots/` |
-| 体验录像 | `delivery/demo/bodyday-v2-walkthrough.mp4` |
+| 演示视频 | `delivery/demo/BodyDay_最终演示.mp4` |
 | 源码包 | `delivery/source/`；压缩包 `delivery/source-archive.zip` |
 | 赛事开发文档 | `delivery/docs/作品开发文档.md` / `delivery/docs/作品开发文档.docx` |
 | 架构说明 | `body-day/docs/ARCHITECTURE.md` |
@@ -141,7 +144,7 @@
 
 ### 5.1 14 张真实运行截图索引
 
-桌面截图 1440×900；移动端 390×844（2x）。**V2.1（2026-10-16）**：14 张截图已按新界面（无尺度轴、无桌面滑杆、默认人体中性化）**重新采集**；另有 `delivery/test-evidence/screenshots/public-presentation/`（10 张中性化视觉核对截图）。桌面截图为 V2 界面：**没有双模式开关，也没有左侧结构栏**。
+桌面截图 1440×900；移动端 390×844（2x）。2026-10-18 按当前界面（无尺度轴、右信息栏为「当前对象」、默认人体中性化）**重新采集**；另有 `delivery/test-evidence/screenshots/public-presentation/`（10 张中性化视觉核对截图）。桌面截图为当前界面：**没有双模式开关；在整具人体可被筛选的页面有左操作栏（系统筛选），器官页 / 细胞页 / 器官详解页无左栏**。
 
 | 序号 | 截图文件 | 对应页面 / 状态 |
 |---|---|---|
@@ -187,6 +190,11 @@
 cell-architecture-studio 的细胞 GLB（许可不明、体量过大）、LearningCell / blendercell（许可不明）。
 评估记录见 `docs/REFERENCE_ADOPTION.md`。
 
+### 6.1 本轮评估的两个开源项目（如实记录，均未整合）
+
+- **Human Atlas（`ashemag/human-atlas`）**：代码许可经核为 **MIT（© 2026 ashemag）**、模型为 **BodyParts3D（CC BY 4.0）**，法律上可复用。但**本轮未移植**（原因是工程与时间：其渲染栈为 three ^0.159 且不用 React Three Fiber，与本工程的 three 0.186 / R3F 9 不兼容；模型约 33 MB；使用另一套 BodyParts3D 的 ID 体系，严禁与 Z-Anatomy 的结构 ID 混用），按施工手册的 45–70 分钟止损规则停止。**因此「同一前视平面二维投影打包」未实现**；本作品的展开是**按解剖系统分层的真实几何径向分离 + 体表外壳渐进隐去**，**不得**把它称作或暗示为 Human Atlas 式平面排列。
+- **Anatomy（`thebuggeddev/anatomy`）**：**未确认许可 ⇒ 未复制**（仓库根目录没有任何 LICENSE/COPYING 文件，`package.json` 未声明源码许可，其 `public/models/*.glb` 资产许可也未核实）。其九器官名单（心 / 脑 / 肺 / 肝 / 肾 / 眼 / 肠 / 胰腺 / 皮肤）**仅作为目标能力参考**；器官详解由本工程**已合法分发的 Z-Anatomy 几何（CC BY-SA 4.0）** + 自行撰写的中文内容实现。
+
 ## 7. 部署
 
 **无公开部署地址**。本作品未部署到任何公网环境，也未声称已上线。
@@ -208,7 +216,7 @@ npm run build                 # 产物 dist/，纯静态
 
 1. **学校审核推荐**：汇总、盖章、邮寄（赛事要求，本 Agent 不代做）。🔴
 2. **网络平台报名与提交**：截止 **2026-10-18**。当前**未提交、未上线**。🔴
-3. **演示视频**：`delivery/demo/bodyday-v2-walkthrough.mp4`（**约 105 秒**，`ffprobe` 实测 105.4 s）；如需更高规格版本，
+3. **演示视频**：`delivery/demo/BodyDay_最终演示.mp4`（1920×1080，H.264；时长以 `delivery/demo/VIDEOCRAFT_PRODUCTION_LOG.md` 的 ffprobe 实测为准）；如需更高规格版本，
    按 `delivery/demo/DEMO_VIDEO_SCRIPT.md` 在装有真实 GPU 的机器上重录 / 补录。🔴（确认 ≤8 分钟）
 4. **《作品开发文档》`.docx` 复核**：请在 Word 或 WPS Office 中确认排版与截图插入、**无错版**。🔴
 5. **移动端真机走查**：iOS Safari 与 Android Chrome 各走一遍（浏览器视口检查已完成）。

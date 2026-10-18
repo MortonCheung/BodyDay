@@ -8,7 +8,7 @@ import type { Scale } from '../domain';
  * 结构的选择完全交给模型（点选、聚焦、隔离、拆解），
  * 页面的差别只是镜头与右纸条随选中连续变化，而不是换一套外壳。
  *
- * 可独立直达、具有实质内容与独立交互的「页面」共 11 个（含首页与关于）：
+ * 可独立直达、具有实质内容与独立交互的「页面」共 16 个（含封面与封底）：
  *  01 /                              首页 · 启动封面 + 完整人体
  *  02 /body                          人体总览（不经封面，可直接深链）
  *  03 /systems/nervous-system        神经系统
@@ -21,7 +21,7 @@ import type { Scale } from '../domain';
  *  10 /cell/leukocyte                白细胞
  *  11 /about                         关于 · 数据与方法
  *  12 /explore                       人体探索（主导航；与 /body 等价）
- *  13–15 /detail/heart|brain|lungs   器官详解（仅已核实几何存在的器官）
+ *  13–16 /detail/heart|brain|lungs|spleen  器官详解（仅 organBridge 已核实的器官）
  */
 export const ROUTES = {
   cover: '/',
@@ -61,6 +61,7 @@ export const PAGE_INDEX: PageIndexEntry[] = [
   { no: '13', title: '器官详解 · 心脏', path: '/detail/heart', scale: 'organ', summary: '镜头聚焦并隔离心脏；右栏只讲当前器官本身，并提供返回探索。' },
   { no: '14', title: '器官详解 · 大脑', path: '/detail/brain', scale: 'organ', summary: '镜头聚焦并隔离端脑；右栏只讲当前器官本身，并提供返回探索。' },
   { no: '15', title: '器官详解 · 肺', path: '/detail/lungs', scale: 'organ', summary: '镜头聚焦并隔离肺；右栏按真实空间/结构事实说明左右分叶与气体交换作用。' },
+  { no: '16', title: '器官详解 · 脾脏', path: '/detail/spleen', scale: 'organ', summary: '镜头聚焦并隔离脾脏；右栏说明淋巴器官的免疫角色与血液过滤功能，并提供返回探索。' },
 ];
 
 /** 实体 → 可直达的页面路径（用于跨尺度跳转与引导步骤定位） */

@@ -1,0 +1,140 @@
+{
+  "base": "http://localhost:5173",
+  "videoCraftSkill": "不存在（全盘搜索 + 已配置 skills 清单均无命中）→ 按手册 §9.1 采用真实浏览器录屏退路",
+  "recording": "Playwright Chromium 真实输入（滚轮 / 点击 / 拖动），1920×1080，software GL",
+  "rawWebm": "/var/folders/71/cqlnr3rj5xn9c7x7gjcx1hkw0000gn/T/page@31669613947ffe4a2379e820bf4ba2ce.webm",
+  "rawBytes": 12062952,
+  "output": "/Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/demo/BodyDay_最终演示.mp4",
+  "outputBytes": 4648992,
+  "durationSeconds": 188.07,
+  "withinEightMinutes": true,
+  "enteredOrganDetail": true,
+  "steps": [
+    {
+      "step": "镜头截图 01-loading",
+      "detail": "/Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/demo/video-shot-01-loading.png",
+      "at": "2026-10-18T05:09:40.288Z"
+    },
+    {
+      "step": "镜头截图 02-enter-ready",
+      "detail": "/Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/demo/video-shot-02-enter-ready.png",
+      "at": "2026-10-18T05:09:45.362Z"
+    },
+    {
+      "step": "开场",
+      "detail": "真实进度 → 同节点形变为「进入探索」（100% 由真实 ready 触发；本地加载 <1s）",
+      "at": "2026-10-18T05:09:45.363Z"
+    },
+    {
+      "step": "镜头截图 03-explore-body",
+      "detail": "/Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/demo/video-shot-03-explore-body.png",
+      "at": "2026-10-18T05:09:59.741Z"
+    },
+    {
+      "step": "转动人体",
+      "detail": "拖动旋转（真实 pointer 事件）",
+      "at": "2026-10-18T05:10:39.127Z"
+    },
+    {
+      "step": "镜头截图 04-exploded",
+      "detail": "/Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/demo/video-shot-04-exploded.png",
+      "at": "2026-10-18T05:10:55.512Z"
+    },
+    {
+      "step": "滚轮拆解",
+      "detail": {
+        "progress": 0.56,
+        "visibleMeshes": 734
+      },
+      "at": "2026-10-18T05:10:55.513Z"
+    },
+    {
+      "step": "点选心脏",
+      "detail": {
+        "命中心脏": false,
+        "实际选中": "Inferior_lobe_of_left_lung",
+        "说明": "投影中心附近命中的是相邻/外层结构"
+      },
+      "at": "2026-10-18T05:11:20.629Z"
+    },
+    {
+      "step": "即将进入器官详解",
+      "detail": {
+        "卡片标题": "Superior_lobe_of_right_lung",
+        "入口文字": "查看器官详解 →",
+        "目标": "#/detail/lungs"
+      },
+      "at": "2026-10-18T05:11:25.639Z"
+    },
+    {
+      "step": "镜头截图 06-organ-detail",
+      "detail": "/Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/demo/video-shot-06-organ-detail.png",
+      "at": "2026-10-18T05:11:32.701Z"
+    },
+    {
+      "step": "进入器官详解",
+      "detail": "http://localhost:5173/#/detail/lungs",
+      "at": "2026-10-18T05:11:32.702Z"
+    },
+    {
+      "step": "返回探索",
+      "detail": "http://localhost:5173/#/explore",
+      "at": "2026-10-18T05:11:45.652Z"
+    },
+    {
+      "step": "点选大脑",
+      "detail": {
+        "命中大脑": false,
+        "实际选中": null,
+        "说明": "投影中心附近没有命中任何结构"
+      },
+      "at": "2026-10-18T05:12:07.555Z"
+    },
+    {
+      "step": "点选细分结构",
+      "detail": {
+        "title": "体表（皮肤）",
+        "text": "当前对象收起体表（皮肤）位于体表与区域解剖。",
+        "drillLabel": null,
+        "drillHref": null
+      },
+      "at": "2026-10-18T05:12:16.029Z"
+    },
+    {
+      "step": "镜头截图 05-structure-cards",
+      "detail": "/Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/demo/video-shot-05-structure-cards.png",
+      "at": "2026-10-18T05:12:19.825Z"
+    },
+    {
+      "step": "器官页 大脑",
+      "detail": {
+        "title": null,
+        "text": "当前对象收起查看器官详解 →大脑Cerebrum / Brain脑位于颅腔内，是中枢神经系统的核心。端脑（大脑）负责感觉整合、随意运动、语言与高级认知。位置位于颅腔内，与脑干、小脑共同组成脑的主体部分。构成脑由神经组织构成，其中包含大量神经元与神经胶质细胞。主要分区常按端脑（大脑）、小脑、脑干来分区",
+        "drillLabel": "查看器官详解 →",
+        "drillHref": "#/detail/brain"
+      },
+      "at": "2026-10-18T05:12:22.067Z"
+    },
+    {
+      "step": "器官页 心脏",
+      "detail": {
+        "title": null,
+        "text": "当前对象收起查看器官详解 →心脏Heart心脏是循环系统的动力泵，通过有节律的收缩把血液推向肺与全身。四个腔右心房、右心室、左心房、左心室；左右两侧由室间隔分开。瓣膜房室瓣与半月瓣保证血液单向流动，防止倒流。与白细胞的真实关系白细胞主要在骨髓生成，随血液被输送到全身；心脏提供的是循环动力，而不是生成",
+        "drillLabel": "查看器官详解 →",
+        "drillHref": "#/detail/heart"
+      },
+      "at": "2026-10-18T05:12:31.792Z"
+    },
+    {
+      "step": "镜头截图 07-about",
+      "detail": "/Users/morton_cheung/Desktop/比赛/科普设计大赛/delivery/demo/video-shot-07-about.png",
+      "at": "2026-10-18T05:12:45.569Z"
+    },
+    {
+      "step": "原始录像",
+      "detail": "/var/folders/71/cqlnr3rj5xn9c7x7gjcx1hkw0000gn/T/page@31669613947ffe4a2379e820bf4ba2ce.webm",
+      "at": "2026-10-18T05:12:46.629Z"
+    }
+  ],
+  "generatedAt": "2026-10-18T05:13:12.343Z"
+}

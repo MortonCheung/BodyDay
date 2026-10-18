@@ -3,35 +3,37 @@ import { CellStage, FullBodyStage } from '../../three/lazyStages';
 import { useStageState } from '../../three/useStageState';
 import { StageBoundary } from '../../components/StageBoundary';
 import { useStartupActions } from '../../app/AppProviders';
-import { routeForEntity, ROUTES } from '../../app/routes';
+import { ROUTES } from '../../app/routes';
 import type { ResolvedView } from '../../app/resolveView';
 import {
   ENTITY_STRUCTURE,
+  STRUCTURE_LABELS,
   describeStructure,
+  entityForStructure,
   type StructureHit,
   type StructureInfo,
 } from '../../services/atlas';
 import { markDiscovered } from '../../services/progress';
 import {
   ENTITY_MAP,
-  RELATION_TYPE_LABEL,
   SCALE_MAP,
+  SYSTEMS,
   getChildren,
   getEntity,
   getSystem,
-  relationsFrom,
-  relationsOf,
   type BodyEntity,
-  type KnowledgeRelation,
   type Scale,
   type SystemBrief,
 } from '../../domain';
-import type { FullBodyProbe, FullBodyStats } from '../../three/FullBodyStage';
 import {
-  KnowledgePaper,
-  type AscendLink,
-  type DrillLink,
-} from './KnowledgePaper';
+  isVerifiedOrgan,
+  organDisplayName,
+  organTargetForStructure,
+  resolveOrganDetail,
+} from '../../integrations/organBridge';
+import { clearReturnContext, readReturnContext, saveReturnContext } from './returnContext';
+import type { FullBodyProbe, FullBodyStats } from '../../three/FullBodyStage';
+import { KnowledgePaper, type DrillLink } from './KnowledgePaper';
 import { buildStructureCard, type StructureCardData } from '../../domain/structureCard';
 import './workbench.css';
 
@@ -97,6 +99,22 @@ function systemAsEntity(system: SystemBrief): BodyEntity {
   };
 }
 
+/**
+ * 「返回探索」时用结构 ID 还原一次选中。
+ *
+ * 只用已登记结构的中文名与实体映射重建一个最小 `StructureInfo`；真实解剖名与
+ * 具体脑区名无法从 ID 复原时留空——相机取景与高亮只依赖 `targetId`，不受影响。
+ */
+function structureInfoForTarget(targetId: string): StructureInfo {
+  return {
+    structureId: targetId,
+    entityId: entityForStructure(targetId),
+    name: STRUCTURE_LABELS[targetId] ?? null,
+    system: null,
+    partName: null,
+  };
+}
+
 function buildModel(view: ResolvedView): WorkbenchModel {
   switch (view.kind) {
     case 'system': {
@@ -152,6 +170,26 @@ function buildModel(view: ResolvedView): WorkbenchModel {
         emptyHint: '点选任一部件，查看它在细胞里的作用。',
       };
     }
+    case 'detail': {
+      /* 器官详解：只接受已核实几何存在的器官；未核实则安全回退到人体探索 */
+      const spec = resolveOrganDetail(view.organId);
+      const entity = spec?.entity;
+      const system = getSystem(entity?.parentId);
+      return {
+        scale: 'organ',
+        entity,
+        system,
+        isCell: false,
+        cellId: null,
+        onlySystemId: null,
+        entryStructureId: spec?.structureId ?? null,
+        entryIsolate: true,
+        pageTitle: entity?.nameZh ?? '器官详解',
+        subjectLabel: '当前器官',
+        hudNote: `${entity?.nameZh ?? '该器官'}已聚焦 · 点选局部结构查看`,
+        emptyHint: '点这个器官上的任意位置，查看它内部的结构。',
+      };
+    }
     default: {
       const entity = getEntity('human');
       return {
@@ -173,9 +211,6 @@ function buildModel(view: ResolvedView): WorkbenchModel {
   }
 }
 
-/** 关系语义 → 是否可以当作「继续深入」的入口（不编造、不使用兜底关系） */
-const DRILLABLE_TYPES = new Set(['extends_to', 'part_of', 'functional']);
-
 /** 滚轮每格推进的拆解量：约 14 格走满 0 → 1，手感既连续又不至于太慢 */
 const EXPLODE_WHEEL_STEP = 0.07;
 
@@ -193,6 +228,8 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   const [resetNonce, setResetNonce] = useState(0);
   const [hovered, setHovered] = useState<StructureInfo | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** 左操作栏的系统筛选（atlas 系统 ID）；null = 显示全部系统 */
+  const [systemFilter, setSystemFilter] = useState<string | null>(null);
 
   const current = history.length > 0 ? history[history.length - 1] : null;
   const canGoBack = history.length > 1;
@@ -226,9 +263,24 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   useEffect(() => {
     if (lastPath.current === view.path) return;
     lastPath.current = view.path;
-    setHistory([]);
-    setExplode(0);
+    /**
+     * 「返回探索」：若存在返回上下文且目标就是人体探索，用它恢复选中结构、展开程度
+     * 与相机取景（相机由 focusNonce + selectedStructureId 的聚焦逻辑复原）。
+     * 详情**直链**打开时读不到上下文，走下面的默认重置。
+     */
+    const snapshot = view.kind === 'body' ? readReturnContext() : null;
+    if (snapshot && snapshot.selectedStructureId) {
+      setHistory([
+        { targetId: snapshot.selectedStructureId, info: structureInfoForTarget(snapshot.selectedStructureId) },
+      ]);
+      setExplode(Math.min(1, Math.max(0, snapshot.explode)));
+      clearReturnContext();
+    } else {
+      setHistory([]);
+      setExplode(0);
+    }
     setHovered(null);
+    setSystemFilter(null);
     setFocusNonce((n) => n + 1);
     setResetNonce((n) => n + 1);
     if (!model.isCell && model.entity) markDiscovered(model.entity.id);
@@ -241,6 +293,15 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
    * 其余页面（含人体总览）选中结构时**只淡化**其它结构，保留完整人体的空间上下文。
    */
   const isolateStructureId = model.entryIsolate ? model.entryStructureId : null;
+
+  /** 系统筛选：左操作栏的显式选择优先，否则用页面自带的系统视图 */
+  const effectiveOnlySystemId = systemFilter ?? model.onlySystemId;
+  /**
+   * 左操作栏只在「整具人体可被系统筛选」的页面出现（人体探索 / 系统页）。
+   * 器官页与器官详解页已经隔离单个器官，细胞页没有系统概念——这些页面不出现左栏，
+   * 不为填空间堆重复内容（手册 §3.2）。
+   */
+  const showControls = !model.isCell && !model.entryIsolate;
 
   useEffect(() => {
     devState.current.view = {
@@ -350,86 +411,46 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
     });
   }, [current, selectedEntity, model.entity]);
 
+  const isDetail = view.kind === 'detail';
+
   /**
-   * 纸条主体：优先选中映射到的实体；点在局部结构上时，主体仍是它所属的已登记结构；
-   * 点在未登记结构上时只讲被点中的结构本身，不再挂一份「人体」总览。
+   * 纸条主体：选中映射到实体时讲它；否则讲本页主体。
+   * 人体层未选中结构时**不重复展示**「人体总览」这张固定默认卡，只给一句引导。
    */
-  const subjectEntityId = useMemo(() => {
-    if (selectedEntity) return selectedEntity.id;
-    if (!current) return model.entity?.id;
-    return structureCard?.parent ? model.entity?.id : undefined;
-  }, [selectedEntity, current, structureCard, model.entity]);
+  const paperSubject = useMemo<BodyEntity | undefined>(() => {
+    if (structureCard) return undefined;
+    if (selectedEntity) return selectedEntity;
+    if (model.scale === 'body') return undefined;
+    return model.entity;
+  }, [structureCard, selectedEntity, model]);
 
-  const relations = useMemo<KnowledgeRelation[]>(
-    () => (subjectEntityId ? relationsOf(subjectEntityId).slice(0, 3) : []),
-    [subjectEntityId],
-  );
+  /**
+   * 右上唯一的跨页入口：`查看器官详解 →`。
+   * 只在当前对象（选中结构，或本页入场结构）能沿**已核实映射**落到一个合法器官、
+   * 且目标页不是当前页时出现；映射未核实时不传任何按钮，绝不造假入口（手册 §3.4 / §7.4）。
+   */
+  const drill = useMemo<DrillLink | null>(() => {
+    if (isDetail) return null;
+    const structureId = current?.targetId ?? model.entryStructureId ?? null;
+    const organId = organTargetForStructure(structureId);
+    if (!organId || !isVerifiedOrgan(organId)) return null;
+    const to = ROUTES.detail(organId);
+    if (to === view.path) return null;
+    const name = organDisplayName(organId) ?? '该器官';
+    return { to, label: '查看器官详解', note: `进入「${name}」的独立页面，只观察这一个器官。` };
+  }, [isDetail, current, model.entryStructureId, view.path]);
 
-  /** 主体所属系统（用于「所属系统」一行，不引入任何新的医学内容） */
-  const subjectSystem = useMemo(() => {
-    const subject = selectedEntity ?? model.entity;
-    const parent = subject?.parentId ? ENTITY_MAP[subject.parentId] : undefined;
-    return parent?.nameZh ?? model.system?.nameZh ?? null;
-  }, [selectedEntity, model.entity, model.system]);
-
-  /** 继续深入：只走真实登记的关系，并且目标页面必须真实存在 */
-  const drill = useMemo<DrillLink[]>(() => {
-    const out: DrillLink[] = [];
-    const seen = new Set<string>();
-
-    /**
-     * 选中了某个已登记器官时，先给出「进入它的器官页」。
-     *
-     * 这不是一条科学关系，而是一次**页面级入口**：在人体总览上点到心脏之后，
-     * 用户需要一条明确的路径进入「心脏」这一页（聚焦、隔离、专题知识）。
-     * 没有它，器官页就只能靠手输网址到达。
-     */
-    if (selectionEntityId && ENTITY_STRUCTURE[selectionEntityId]) {
-      const to = ROUTES.organ(selectionEntityId);
-      if (to !== view.path) {
-        seen.add(to);
-        out.push({
-          to,
-          label: `进入${ENTITY_MAP[selectionEntityId]?.nameZh ?? '该器官'}（单独观察）`,
-          note: '镜头聚焦这个器官，并把其它结构暂时隐去。',
-        });
-      }
-    }
-
-    if (subjectEntityId && !model.isCell) {
-      for (const relation of relationsFrom(subjectEntityId)) {
-        if (!DRILLABLE_TYPES.has(relation.relationType)) continue;
-        const target = ENTITY_MAP[relation.toId];
-        if (!target) continue;
-        if (target.kind === 'cell' && !target.proceduralId) continue;
-        const to = routeForEntity(target.id);
-        if (!to || to === view.path || seen.has(to)) continue;
-        seen.add(to);
-        out.push({
-          to,
-          label:
-            relation.relationType === 'extends_to'
-              ? `进入${target.nameZh}`
-              : `查看${target.nameZh}`,
-          note: `${RELATION_TYPE_LABEL[relation.relationType]}：${relation.description}`,
-        });
-      }
-    }
-    return out;
-  }, [selectionEntityId, subjectEntityId, model.isCell, view.path]);
-
-  const ascend = useMemo<AscendLink | null>(() => {
-    if (!model.entity?.parentId) return null;
-    const parent = ENTITY_MAP[model.entity.parentId];
-    if (!parent) return null;
-    const to = routeForEntity(parent.id);
-    if (!to || to === view.path) return null;
-    return {
-      to,
-      label: `返回${parent.nameZh}`,
-      note: `尺度回到${parent.nameZh}层：镜头拉远，模型随之整体呈现。`,
-    };
-  }, [model.entity, view.path]);
+  /** 进入详情前保存返回上下文：结构 ID / 展开程度 / 来源视图 / 相机取景（可序列化） */
+  const handleDrillNavigate = useCallback(() => {
+    const probe = devState.current.probe as FullBodyProbe | undefined;
+    saveReturnContext({
+      selectedStructureId: current?.targetId ?? model.entryStructureId ?? null,
+      selectedOrganId: view.organId ?? null,
+      explode,
+      view: view.path,
+      camera: probe ? { position: probe.camera.position, target: probe.camera.target } : null,
+    });
+  }, [current, model.entryStructureId, explode, view.organId, view.path]);
 
   const cellParts = useMemo(
     () => (model.isCell && model.entity ? getChildren(model.entity.id) : null),
@@ -437,8 +458,46 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   );
 
   return (
-    <div className="bd-workbench" data-paper={sheetOpen ? 'open' : 'closed'}>
+    <div className="bd-workbench" data-paper={sheetOpen ? 'open' : 'closed'} data-control={showControls ? 'on' : 'off'}>
       <h1 className="bd-sr-only">{model.pageTitle}</h1>
+
+      {showControls ? (
+        <aside className="bd-wb-control" aria-label="操作栏">
+          <div className="bd-wb-control__block">
+            <span className="bd-label">系统筛选</span>
+            <div className="bd-wb-control__chips">
+              <button
+                type="button"
+                className="bd-chip"
+                data-active={systemFilter === null}
+                onClick={() => setSystemFilter(null)}
+              >
+                全部
+              </button>
+              {SYSTEMS.map((system) => (
+                <button
+                  key={system.atlasId}
+                  type="button"
+                  className="bd-chip"
+                  data-active={systemFilter === system.atlasId}
+                  onClick={() =>
+                    setSystemFilter(systemFilter === system.atlasId ? null : system.atlasId)
+                  }
+                >
+                  {system.nameZh}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="bd-wb-control__block">
+            <span className="bd-label">当前对象</span>
+            <p className="bd-wb-control__status">
+              {current?.info.name ?? model.entity?.nameZh ?? '未选中结构'}
+            </p>
+          </div>
+        </aside>
+      ) : null}
 
       <div className="bd-wb-column">
         <div className="bd-wb-stage" data-stage={model.isCell ? 'cell' : 'body'}>
@@ -459,7 +518,7 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
                 resetNonce={resetNonce}
                 onExplodeWheel={handleExplodeWheel}
                 isolateStructureId={isolateStructureId}
-                onlySystemId={model.onlySystemId}
+                onlySystemId={effectiveOnlySystemId}
                 onReady={handleReady}
                 onProbe={handleProbe}
                 onProgress={reportProgress}
@@ -521,14 +580,13 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
       </div>
 
       <KnowledgePaper
-        entity={model.entity}
+        subject={paperSubject}
         selection={model.isCell ? null : current?.info ?? null}
-        selectedEntity={selectedEntity}
         structureCard={structureCard}
-        subjectSystem={subjectSystem}
-        relations={relations}
         drill={drill}
-        ascend={ascend}
+        isDetail={isDetail}
+        returnTo={ROUTES.explore}
+        onDrillNavigate={handleDrillNavigate}
         emptyHint={model.emptyHint}
         canGoBack={canGoBack}
         onBack={goBackOne}

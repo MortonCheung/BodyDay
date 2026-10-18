@@ -69,6 +69,31 @@ try {
   const controls = await page.locator('.bd-entry button, .bd-entry a, .bd-entry input').count();
   await page.screenshot({ path: `${SHOTS}/entry-loading.png` });
 
+  /*
+   * 记录入口状态机的真实轨迹（ready → 形变 → settled 可点）。
+   * 不用 rAF 轮询：软件渲染下首帧会长时间占住主线程，轮询会漏采到「形变已经结束」的时刻，
+   * 从而得出「形变中可点」的错误结论。改用 MutationObserver 在属性变化时取值。
+   */
+  await page.evaluate(() => {
+    const el = document.querySelector('.bd-entry__morph');
+    const box = () => {
+      const r = el.getBoundingClientRect();
+      return { width: Math.round(r.width), height: Math.round(r.height) };
+    };
+    window.__entryTrace = [
+      { stage: 'init', ready: el.dataset.ready, settled: el.dataset.settled, disabled: el.disabled, box: box() },
+    ];
+    new MutationObserver(() => {
+      window.__entryTrace.push({
+        stage: 'mutation',
+        ready: el.dataset.ready,
+        settled: el.dataset.settled,
+        disabled: el.disabled,
+        box: box(),
+      });
+    }).observe(el, { attributes: true, attributeFilter: ['data-ready', 'data-settled', 'disabled'] });
+  });
+
   await page.waitForSelector('.bd-entry__morph[data-ready="true"]', { timeout: 120000 });
   const duringMorph = await page.evaluate(() => ({
     disabled: document.querySelector('.bd-entry__morph').disabled,
@@ -83,19 +108,26 @@ try {
   const settledBox = await page.locator('.bd-entry__morph').boundingBox();
   await page.screenshot({ path: `${SHOTS}/entry-button.png` });
 
+  /* 从轨迹里取「已就绪但尚未 settled」的那一帧：这才是「形变中」的真实状态 */
+  const trace = await page.evaluate(() => window.__entryTrace ?? []);
+  const morphFrame = trace.find((t) => t.ready === 'true' && t.settled !== 'true') ?? null;
+
   report.tests.entry = {
     controlCount: controls,
     barBox: barBox ? { width: Math.round(barBox.width), height: Math.round(barBox.height) } : null,
     sameNode: duringMorph.sameNode,
-    disabledWhileMorphing: duringMorph.disabled,
+    /* 形变中必须不可点：取轨迹中 ready 且未 settled 的那一帧的 disabled */
+    disabledWhileMorphing: morphFrame ? morphFrame.disabled : null,
+    morphFrameBox: morphFrame ? morphFrame.box : null,
     morphingBox: duringMorph.box,
     settledBox: settledBox
       ? { width: Math.round(settledBox.width), height: Math.round(settledBox.height) }
       : null,
+    trace,
   };
   log('1 入口同节点形变', report.tests.entry);
 
-  /* ---------------- 2. 点击进入 → #/body + 五项顶栏 ---------------- */
+  /* ---------------- 2. 点击进入 → #/explore + 三项主导航 ---------------- */
   await page.locator('.bd-entry__morph').click();
   await page.waitForTimeout(1500);
   const nav = await page.locator('.bd-nav__item').allInnerTexts();
@@ -105,7 +137,7 @@ try {
     navItems: nav,
     navCount: nav.length,
   };
-  log('2 进入与五项顶栏', report.tests.enter);
+  log('2 进入与三项主导航', report.tests.enter);
 
   await page.waitForFunction(() => Boolean(window.__BODYDAY_STAGE__?.probe), null, { timeout: 120000 });
   await page.waitForTimeout(2600);

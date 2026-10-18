@@ -66,6 +66,20 @@
 .bd-nav__item:hover::after { transform: scaleX(0.5); }
 .bd-nav__item[data-active="true"]::after { transform: scaleX(1); }
 
+/* 窄屏顶栏：收紧内边距、间距与字号，保证三项主导航在 360–390px 下也不产生横向溢出
+   （实测修复前 390px 视口出现 3px 溢出，溢出元素为顶栏 `.bd-nav`） */
+@media (max-width: 640px) {
+  .bd-header__inner { padding-inline: 12px; gap: var(--bd-space-2); }
+  .bd-wordmark { font-size: 1rem; gap: 6px; }
+  .bd-wordmark__sub { font-size: 0.5625rem; letter-spacing: 0.12em; }
+  .bd-nav { gap: var(--bd-space-3); }
+  .bd-nav__item { font-size: 0.8125rem; }
+}
+@media (max-width: 380px) {
+  .bd-nav { gap: var(--bd-space-2); }
+  .bd-nav__item { font-size: 0.75rem; }
+}
+
 /* 模式切换：文字 + 底线指示，不用胶囊 */
 .bd-modeswitch { display: flex; align-items: center; gap: var(--bd-space-4); }
 .bd-modeswitch__item {
