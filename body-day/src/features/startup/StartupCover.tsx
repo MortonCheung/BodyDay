@@ -20,6 +20,38 @@ const MORPH_MS = 640;
 /** 超过这个时长仍未就绪，给出最小重试入口，避免用户干等 */
 const SLOW_LOAD_HINT_MS = 45_000;
 
+/**
+ * 齿环：加载时随真实进度转动，就绪后随按钮一起收合。
+ *
+ * 纯 SVG + CSS，不引入动画库；角度由 `ratio` 直接决定，
+ * 因此它反映的是**真实加载进度**，不是自转的装饰。
+ */
+function GearRing({ ratio, side }: { ratio: number; side: 'left' | 'right' }) {
+  return (
+    <svg
+      className={`bd-entry__gear bd-entry__gear--${side}`}
+      viewBox="0 0 100 100"
+      aria-hidden="true"
+      style={{ transform: `rotate(${ratio * 540}deg)` }}
+    >
+      <circle cx="50" cy="50" r="35" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.38" />
+      {Array.from({ length: 30 }).map((_, index) => (
+        <rect
+          key={index}
+          x="48.7"
+          y="3.5"
+          width="2.6"
+          height="13"
+          fill="currentColor"
+          opacity="0.66"
+          transform={`rotate(${index * 12} 50 50)`}
+        />
+      ))}
+      <circle cx="50" cy="50" r="7" fill="none" stroke="currentColor" strokeWidth="1.3" opacity="0.5" />
+    </svg>
+  );
+}
+
 export function StartupCover() {
   const { phase, loaded, total, ratio } = useStartupState();
   const { enter } = useStartupActions();
@@ -57,23 +89,27 @@ export function StartupCover() {
 
   return (
     <div className="bd-entry" data-state={entering ? 'entering' : ready ? 'ready' : 'loading'}>
-      <button
-        type="button"
-        ref={buttonRef}
-        className="bd-entry__morph"
-        data-ready={ready}
-        data-settled={settled}
-        disabled={!clickable}
-        onClick={enter}
-        aria-label={clickable ? '进入探索' : '正在准备三维人体'}
-      >
-        <span
-          className="bd-entry__fill"
-          aria-hidden="true"
-          style={{ transform: `scaleX(${Math.max(0, Math.min(ratio, 1))})` }}
-        />
-        <span className="bd-entry__label">进入探索</span>
-      </button>
+      <div className="bd-entry__rig" data-settled={settled}>
+        <GearRing ratio={ratio} side="left" />
+        <button
+          type="button"
+          ref={buttonRef}
+          className="bd-entry__morph"
+          data-ready={ready}
+          data-settled={settled}
+          disabled={!clickable}
+          onClick={enter}
+          aria-label={clickable ? '进入探索' : '正在准备三维人体'}
+        >
+          <span
+            className="bd-entry__fill"
+            aria-hidden="true"
+            style={{ transform: `scaleX(${Math.max(0, Math.min(ratio, 1))})` }}
+          />
+          <span className="bd-entry__label">进入探索</span>
+        </button>
+        <GearRing ratio={ratio} side="right" />
+      </div>
 
       {/* 进度只对读屏播报，画面上始终只有这一个控件 */}
       <p className="bd-entry__sr" role="status" aria-live="polite">

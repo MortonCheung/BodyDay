@@ -98,14 +98,36 @@ await page.mouse.move(box.x + box.width / 2 + 150, box.y + box.height / 2 + 20, 
 await page.mouse.up();
 await page.waitForTimeout(4200);
 note('转动人体', '拖动旋转（真实 pointer 事件）');
-await page.waitForTimeout(4000);
-
-/* ---------------- 4. 完整人体 → 拆解（30s） ---------------- */
-await wheel(120, 8);
 await page.waitForTimeout(3000);
+
+/* 系统筛选：只列出有真实可见网格的系统（生殖系统不会出现） */
+const chips = await page.locator('.bd-wb-control .bd-chip').allInnerTexts();
+note('左栏系统按钮', { chips, count: chips.length });
+const nervous = page.locator('.bd-wb-control .bd-chip', { hasText: '神经系统' }).first();
+if (await nervous.count()) {
+  await nervous.click();
+  await page.waitForTimeout(3800);
+  note('筛选神经系统', await page.evaluate(() => window.__BODYDAY_STAGE__?.probe?.visibleMeshes ?? null));
+  await shot('03b-system-nervous');
+  await page.waitForTimeout(4000);
+  const all = page.locator('.bd-wb-control .bd-chip', { hasText: '全部' }).first();
+  await all.click();
+  await page.waitForTimeout(3000);
+}
+
+/* ---------------- 4. 完整人体 → 平面展开（30s） ---------------- */
+const expandBox = await stageBox();
+await page.mouse.move(expandBox.x + expandBox.width / 2, expandBox.y + expandBox.height / 2);
+await wheel(120, 16);
+await page.waitForTimeout(3400);
 const exploded = await page.evaluate(() => window.__BODYDAY_STAGE__?.probe ?? null);
 await shot('04-exploded');
-note('滚轮拆解', { progress: exploded?.progress ?? null, visibleMeshes: exploded?.visibleMeshes ?? null });
+note('滚轮展开', {
+  progress: exploded?.progress ?? null,
+  visibleMeshes: exploded?.visibleMeshes ?? null,
+  unitCount: exploded?.planar?.unitCount ?? null,
+  unitDepthSpread: exploded?.planar?.unitDepthSpread ?? null,
+});
 await page.waitForTimeout(9000);
 
 /* ---------------- 5. 点选结构 + 右栏卡片联动（约 45s） ----------------
@@ -127,117 +149,58 @@ const readPaper = () =>
     };
   });
 
-const clearSelection = async () => {
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(1400);
-};
-
-/**
- * 尝试点中指定结构：从该结构的投影中心出发，在近邻梯度上试若干落点，
- * 每次都**回读右栏卡片**判断是否真的选中了目标；只有卡片标题真的变化才算命中。
- * 全部落空时返回第一个真实命中的结构（可能是相邻/外层结构）——如实记录，不摆拍。
- */
-const clickStructure = async (id, expect) => {
-  const stage = await stageBox();
-  const before = (await readPaper()).title;
-  const probe = await page.evaluate(() => window.__BODYDAY_STAGE__?.probe ?? null);
-  const pos = probe?.screen?.[id];
-  if (!pos) return { hit: false, info: null, note: '该结构在当前视角没有可投影坐标' };
-  let firstReal = null;
-  for (const [dx, dy] of [
-    [0, 0], [0, 30], [0, -30], [30, 0], [-30, 0], [0, 60], [0, -60], [30, 30], [-30, -30],
-  ]) {
-    await page.mouse.click(stage.x + pos.x + dx, stage.y + pos.y + dy);
-    await page.waitForTimeout(1600);
-    const info = await readPaper();
-    if (info.title && info.title !== before) {
-      if (firstReal === null) firstReal = info;
-      if (expect.test(info.title)) return { hit: true, info };
-    }
-  }
-  return {
-    hit: false,
-    info: firstReal,
-    note: firstReal
-      ? '投影中心附近命中的是相邻/外层结构'
-      : '投影中心附近没有命中任何结构',
-  };
-};
-
-/** 取消选中后点一个未指定的位置，拿一张真实的「细分结构」卡（展示通用结构卡） */
-const clickAnyStructure = async () => {
-  const stage = await stageBox();
-  for (const [fx, fy] of [
-    [0.42, 0.28], [0.5, 0.32], [0.5, 0.5], [0.46, 0.62], [0.56, 0.72], [0.5, 0.8],
-  ]) {
-    await page.mouse.click(stage.x + stage.width * fx, stage.y + stage.height * fy);
-    await page.waitForTimeout(2000);
-    const info = await readPaper();
-    if (info.title) return info;
-  }
-  return null;
-};
-
-/* --- 5a. 点选一个真实结构 --- */
-await clearSelection();
-const heartTry = await clickStructure('heart', /心脏/);
-note('点选心脏', {
-  命中心脏: heartTry.hit,
-  实际选中: heartTry.info?.title ?? null,
-  说明: heartTry.note ?? null,
-});
-await page.waitForTimeout(5000);
-
-/* --- 5b. 右栏唯一入口 → 器官详解（点**当前卡片**上的入口，不碰顶栏） ---
-   上一版成片按可访问名取第一个链接，结果点到顶栏「器官详解」，进了心脏页而不是当前器官；
-   这里限定 `.bd-wb-paper .bd-drill a`，并核对最终地址与卡片指向一致。 */
-const cardAtDetail = await readPaper();
+/* --- 5. 展开态：点击心脏 → 直接进入器官详解 ---
+   新交互不再需要「先选中、再点查看器官详解」：点中完整器官即跳转。
+   投影中心可能落在相邻结构上，这里最多试 3 个近邻落点并**如实记录**结果。 */
+const stageForClick = await stageBox();
+const fullProbe = await page.evaluate(() => window.__BODYDAY_STAGE__?.probe ?? null);
 let enteredDetail = false;
-if (cardAtDetail.drillHref) {
-  const link = page.locator('.bd-wb-paper .bd-drill a').first();
-  note('即将进入器官详解', {
-    卡片标题: cardAtDetail.title,
-    入口文字: cardAtDetail.drillLabel,
-    目标: cardAtDetail.drillHref,
-  });
-  await link.click();
-  await page.waitForTimeout(3600);
-  enteredDetail = true;
-  await stageReady();
-  await shot('06-organ-detail');
-  note('进入器官详解', page.url());
-  await page.waitForTimeout(9000);
-  const back = page.locator('.bd-wb-paper').getByText(/返回探索/).first();
-  if (await back.count()) {
-    await back.click();
-    await page.waitForTimeout(3200);
-    note('返回探索', page.url());
-    await page.waitForTimeout(6000);
+if (fullProbe?.screen?.heart) {
+  /* 投影中心可能落在相邻结构上：最多试 3 个近邻落点，命中详情即停；
+     未命中则按 Esc 清掉误选，继续保持展开态。最终结果如实记录。 */
+  for (const [dx, dy] of [[0, 0], [0, 16], [-16, 0]]) {
+    await page.mouse.click(
+      stageForClick.x + fullProbe.screen.heart.x + dx,
+      stageForClick.y + fullProbe.screen.heart.y + dy,
+    );
+    await page.waitForTimeout(3000);
+    if ((await page.evaluate(() => location.hash)).startsWith('#/detail')) {
+      enteredDetail = true;
+      break;
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1400);
   }
+  note('点击心脏', {
+    hash: await page.evaluate(() => location.hash),
+    直接进入详情: enteredDetail,
+  });
+}
+if (enteredDetail) {
+  await stageReady();
+  await shot('05-heart-detail');
+  await page.waitForTimeout(9000);
+
+  /* --- 6. 详情页：局部结构热点 + Esc 分层返回 --- */
+  const parts = await page.locator('.bd-wb-parts .bd-chip').allInnerTexts();
+  note('详情页局部结构', { parts });
+  if (parts.length > 0) {
+    await page.locator('.bd-wb-parts .bd-chip').first().click();
+    await page.waitForTimeout(3200);
+    await shot('06-detail-hotspot');
+    await page.waitForTimeout(5000);
+    await page.keyboard.press('Escape'); // 先清热点
+    await page.waitForTimeout(1800);
+  }
+  await page.keyboard.press('Escape'); // 再返回探索
+  await page.waitForTimeout(3400);
+  note('Esc 返回探索', { hash: await page.evaluate(() => location.hash) });
+  await page.waitForTimeout(4000);
 } else {
-  note('进入器官详解', '当前卡片没有「查看器官详解」入口（未匹配到已核实器官，如实记录）');
+  note('点击心脏', '未命中详情入口，改由器官页展示（如实记录）');
 }
 
-/* --- 5c. 第二个目标：大脑 --- */
-await clearSelection();
-const brainTry = await clickStructure('cerebrum', /脑/);
-note('点选大脑', {
-  命中大脑: brainTry.hit,
-  实际选中: brainTry.info?.title ?? null,
-  说明: brainTry.note ?? null,
-});
-await page.waitForTimeout(5000);
-
-/* --- 5d. 通用结构卡：一个未登记的真实细分结构（右栏没有假入口） --- */
-await clearSelection();
-const anyCard = await clickAnyStructure();
-note('点选细分结构', anyCard);
-await page.waitForTimeout(3000);
-await shot('05-structure-cards');
-
-/* --- 5e. 器官页：大脑与心脏的真实知识卡（可直达、可深链） ---
-   与上面前 5a–5c 的「模型点选」互为补足：那一段如实展示了「投影中心命中的是相邻结构」，
-   这一段用器官页本身证明心 / 脑的知识卡与右栏唯一入口确实存在。 */
+/* --- 7. 大脑与心脏的真实科普卡（器官页，可深链） --- */
 for (const [organ, name] of [
   ['brain', '大脑'],
   ['heart', '心脏'],
@@ -246,10 +209,12 @@ for (const [organ, name] of [
   await stageReady();
   const info = await readPaper();
   note(`器官页 ${name}`, info);
-  await page.waitForTimeout(7500);
+  await page.waitForTimeout(7000);
 }
 
-/* ---------------- 7. 关于 / 署名（10–15s） ---------------- */
+await shot('07-structure-cards');
+
+/* ---------------- 8. 关于 / 署名（10–15s） ---------------- */
 await page.goto(`${BASE}/#/about`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(6200);
 await shot('07-about');

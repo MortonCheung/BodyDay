@@ -79,7 +79,6 @@ export function KnowledgePaper({
     >
       <div className="bd-wb-head">
         <div className="bd-wb-head__row">
-          <span className="bd-label">当前对象</span>
           <div className="bd-wb-head__actions">
             <button type="button" className="bd-wb-sheetclose bd-mobile-only" onClick={onToggleSheet}>
               收起

@@ -12,47 +12,42 @@ import { FULL_BODY_MODEL_URL } from '../services/anatomyModel';
 
 export { FULL_BODY_MODEL_URL };
 
-/* ---------------- 拆解位移的定标常量 ---------------- */
-
-/** 位移距离 = 该组包围球半径 × 强度 × 缓动进度。 */
-export const EXPLOSION_SPREAD = 1.15;
-/** 位移方向里保留的向上分量：避免只做水平扇形散开，保持整体轮廓的可读性。 */
-export const EXPLOSION_UP_BIAS = 0.32;
-/** 包围球半径下限，避免极小组件的位移距离退化为 0。 */
-export const EXPLOSION_MIN_RADIUS = 0.06;
-/**
- * 单组位移距离的半径上限系数（相对整具人体的包围球半径）。
+/* ---------------- 平面展开（planar explosion）----------------
  *
- * 这是实机验证发现的问题的护栏：`body-shell`（236 个网格）这类**整体外壳**的包围球
- * 半径几乎等于整具人体，若不设上限，它会带着位移量把人体推出画面（实测 1.09 单位，
- * 相机距离只有 2.96）。设上限后「越大越不动」，外层轮廓得以保留。
- */
-export const EXPLOSION_MAX_RADIUS_RATIO = 0.25;
-
-/**
- * 按解剖系统分层的径向位移：同一系统的结构组移动到同一个「层」。
+ * 展开不是「径向炸开」。目标是：完整人体 → 滚轮向下 → 各器官从人体中分离 →
+ * 最终在**面向屏幕的同一平面上**排成清楚、可点击的结构阵列。
  *
- * 这不是装饰性的随机散开，而是一次**有解剖含义的逐层剥离**：
- * 从体表（皮肤）→ 肌肉 → 骨骼 → 内脏/管道 → 深部调节系统，
- * 越靠内的系统在完全拆解时被推得越远，因此内层不再被外层挡住。
- * 未登记的系统（理论上不存在）默认落在第 0 层，只做自身尺寸定标的位移。
+ * 做法（参考 Human Atlas 的 `explosion-layout.ts` 思路，但按本工程真实数据结构重写）：
+ * 1. 把可位移结构组按「布局单元」归并：已验证器官各成一个单元（心 / 肺 / 脑 / 脾 …），
+ *    其余结构按解剖系统归并。这样上千个微小网格不会被摊成不可读的碎片，
+ *    而是以「一个器官」「一个系统」为单位参与二维打包。
+ * 2. 用各单元的真实前视包围盒（x/y）做确定性货架式（shelf）矩形打包，留固定间距。
+ * 3. 每个单元内的所有组平移同一个向量（保持该器官自身的形状），并把 z 拉到统一平面。
+ * 4. 位移 = 目标位置 − 原始位置，再乘以缓动后的进度：progress = 0 时精确为 0，
+ *    因此组装/展开完全可逆、可随时反向，且不累计任何偏移。
  */
-export const EXPLOSION_SYSTEM_LAYER: Record<string, number> = {
-  'regional-anatomy': 0,
-  muscular: 1,
-  skeletal: 2,
-  cardiovascular: 3,
-  lymphatic: 3,
-  respiratory: 3,
-  digestive: 3,
-  urinary: 3,
-  nervous: 4,
-  endocrine: 4,
-  reproductive: 4,
-};
 
-/** 每一层额外增加的径向距离 = 人体包围球半径 × 该比例。 */
-export const EXPLOSION_LAYER_STEP_RATIO = 0.17;
+/** 展开后相邻单元之间的间距 = 人体包围盒最大边 × 该比例。 */
+export const PLANAR_GAP_RATIO = 0.04;
+/** 打包时目标总宽相对「等面积正方形」的放宽系数：越大越扁、越容易被相机装下。 */
+export const PLANAR_ASPECT = 1.5;
+
+/** 参与「单独成单元」的已验证器官结构 ID。 */
+export const PLANAR_UNIT_IDS: readonly string[] = [
+  'heart',
+  'lungs',
+  'cerebrum',
+  'cerebellum',
+  'brainstem',
+  'spleen',
+  'liver',
+  'kidneys',
+  'stomach',
+  'pancreas',
+];
+
+/** 未命中器官时，按解剖系统兜底成单元；未登记系统统一进这一组。 */
+export const PLANAR_UNIT_FALLBACK = 'other';
 
 /** 体表外壳的结构 ID：拆解时它不承担「被推开」的角色，而是随进度渐进隐去。 */
 export const SHELL_STRUCTURE_ID = ATLAS_STRUCTURE_IDS.bodyShell;
@@ -85,16 +80,15 @@ export const PUBLIC_DISPLAY_EXCLUDED_SYSTEMS: readonly string[] = ['reproductive
 /**
  * 公开展示时默认隐去的体表外壳区域（按真实节点名匹配）。
  *
- * 这些名字来自真实 GLB 的节点名核对（见 `docs/v2/06_PUBLIC_PRESENTATION.md`）：
- * `body-shell__Urogenital region.l/.r` 是体表上构成外生殖器的那一块，
- * `body-shell__Pubic hairs` 是同一区域的外观伴随几何。
- * **只隐藏 reproductive 系统并不够** —— 体表外壳上仍保留其形态，因此必须一并处理。
- * 隐藏后该处露出的是真实的肌肉与骨盆结构，属于解剖切口式观感，不是空白或残缺。
+ * 只隐去 `Pubic hairs`（该区域的毛发几何）。
+ * **不再隐去 `Urogenital region` 外壳**：它属于 `body-shell` 本体表，
+ * 整块移除会在骨盆处留下肉眼可见的缺口（实测：正面 / 侧面 / 背面都有空洞）。
+ * 保留它、并让它的材质与周围皮肤完全一致，才能得到连续的人体轮廓。
+ *
+ * 本作品对体表不做整形改写；模型是成人解剖参考模型，公开展示层面只统一材质、
+ * 不提供生殖系统内容，具体边界在「关于」页与交付文档中如实说明。
  */
-export const PUBLIC_DISPLAY_EXCLUDED_SHELL_REGIONS: readonly string[] = [
-  'Urogenital region',
-  'Pubic hairs',
-];
+export const PUBLIC_DISPLAY_EXCLUDED_SHELL_REGIONS: readonly string[] = ['Pubic hairs'];
 
 /**
  * 把节点名归一化后再比较。
@@ -143,15 +137,6 @@ export function shellOpacity(progress: number): number {
   const u = t / SHELL_FADE_END;
   const eased = u * u * (3 - 2 * u);
   return 1 - eased;
-}
-
-/**
- * 人体纵轴的中轴点（只取水平分量）。
- * 径向位移方向 = 从这条中轴指向结构组中心，因此不使用随机向量。
- */
-export function computeBodyAxis(box: THREE.Box3): [number, number, number] {
-  const center = box.getCenter(new THREE.Vector3());
-  return [center.x, 0, center.z];
 }
 
 /**
@@ -224,11 +209,6 @@ export function resolveOrganStructure(
   return null;
 }
 
-/** 由整具人体包围盒推出「单组位移半径」的上限。 */
-export function explosionMaxRadius(bounds: THREE.Box3): number {
-  return (bounds.getSize(new THREE.Vector3()).length() / 2) * EXPLOSION_MAX_RADIUS_RATIO;
-}
-
 /**
  * 从节点名里取出**可展示的真实解剖英文名**。
  *
@@ -239,7 +219,8 @@ export function explosionMaxRadius(bounds: THREE.Box3): number {
 export function readableStructureName(object: THREE.Object3D, structureId: string): string | null {
   const raw = typeof object.name === 'string' ? object.name : '';
   const separator = raw.indexOf('__');
-  const part = (separator >= 0 ? raw.slice(separator + 2) : raw).trim();
+  /* GLTFLoader 会把空格与点清洗成下划线，展示前还原成空格（Left_atrium → Left atrium） */
+  const part = (separator >= 0 ? raw.slice(separator + 2) : raw).trim().replace(/_/g, ' ');
   if (!part || part === structureId) return null;
   // 全小写的名字实际上就是内部 ID，不作为解剖名展示
   if (!/[A-Z]/.test(part)) return null;
@@ -262,66 +243,266 @@ export function buildStructureHit(
   if (typeof structureId !== 'string' || structureId.length === 0) return null;
   const knownStructureId = resolveOrganStructure(structureId, parents, known);
   const systemId = object.userData?.anatomySystem;
+
+  /* 沿父链数出「点到的是本体的第几层」，用于区分「点中器官本体」与「点中脑回这类局部」 */
+  let depthToKnown = -1;
+  if (knownStructureId) {
+    depthToKnown = 0;
+    let cursor = parents.get(structureId);
+    let guard = 0;
+    while (cursor && guard < 64) {
+      depthToKnown += 1;
+      if (cursor === knownStructureId) break;
+      cursor = parents.get(cursor);
+      guard += 1;
+    }
+    if (cursor !== knownStructureId) depthToKnown = -1;
+  }
+
   return {
     targetId: knownStructureId ?? structureId,
     structureId,
     knownStructureId,
     name: readableStructureName(object, structureId),
     systemId: typeof systemId === 'string' && systemId.length > 0 ? systemId : null,
+    depthToKnown,
   };
 }
 
-/** 一个可位移的结构组：真实几何中心 + 自身尺寸 + 所属解剖层。 */
-export interface ExplosionGroup {
+/** 参与平面展开的一个结构组。 */
+export interface LayoutGroup {
   id: string;
   /** 该组网格在模型坐标系下的包围盒中心 */
   center: [number, number, number];
-  /** 该组网格包围盒半径（半对角线），作为位移距离的尺度 */
-  radius: number;
-  /** 所属解剖层（见 `EXPLOSION_SYSTEM_LAYER`）；缺省为 0 */
-  layer?: number;
+  /** 该组网格包围盒的三轴尺寸（平面打包只用 x / y） */
+  size: [number, number, number];
+  /** 所属布局单元：已验证器官 ID，或解剖系统 ID */
+  unit: string;
+  /** 该组的解剖系统 ID（用于系统筛选后的重新布局） */
+  system: string | null;
+  /** 外壳网格不参与平面打包（展开时它本身就渐隐） */
+  shell?: boolean;
 }
 
 /** 某个结构组在给定进度下的位移向量（模型坐标系）。 */
-export interface ExplosionOffset {
+export interface LayoutOffset {
   id: string;
   offset: [number, number, number];
 }
 
+export interface PlanarLayout {
+  offsets: LayoutOffset[];
+  /** 展开后整体在 x / y 上的范围（模型坐标系；z 已收拢到同一平面附近） */
+  bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  /** 参与打包的布局单元数量（用于日志与验收） */
+  unitCount: number;
+  /**
+   * 展开后**各单元中心**在 z 上的跨度（模型坐标系）。
+   * 该值随进度线性收敛到 0，是「所有器官确实被收拢到同一深度平面」的直接证据。
+   */
+  unitDepthSpread: number;
+}
+
+interface UnitBox {
+  unit: string;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  minZ: number;
+  maxZ: number;
+  centerX: number;
+  centerY: number;
+  centerZ: number;
+}
+
 /**
- * 按进度计算每个结构组的位移向量。
+ * 确定性货架式（shelf）矩形打包。
  *
- * 纯函数：位移只由 `progress` 与组的真实几何、解剖层决定，不读取也不写入任何累计状态。
- * 因此 progress = 0 时位移恒为 0，且同一 progress 反复调用结果完全相同。
- *
- * @param maxRadius  单组「按自身尺寸定标」的距离上限（护栏，防止超大组把人体推出画面）
- * @param bodyRadius 整具人体的包围球半径，用于把解剖层换算成真实距离
+ * 输入按高度降序排列，逐行从左到右摆放；一行放不下就换行，行高取该行最高者。
+ * 不使用随机数、不依赖遍历顺序，因此同样的输入必然得到同样的布局——
+ * 这是「同一进度反复调用结果完全一致」的前提。
  */
-export function computeExplosionOffsets(
-  groups: readonly ExplosionGroup[],
-  axis: [number, number, number],
+function shelfPack(
+  rects: readonly { unit: string; w: number; h: number }[],
+  width: number,
+  gap: number,
+): { placed: { unit: string; x: number; y: number; w: number; h: number }[]; height: number } {
+  const rows: { items: { unit: string; x: number; w: number; h: number }[]; y: number; height: number }[] =
+    [];
+  let cursorX = 0;
+  let cursorY = 0;
+  let rowHeight = 0;
+  let rowItems: { unit: string; x: number; w: number; h: number }[] = [];
+
+  for (const rect of rects) {
+    if (cursorX > 0 && cursorX + rect.w > width) {
+      rows.push({ items: rowItems, y: cursorY, height: rowHeight });
+      cursorX = 0;
+      cursorY += rowHeight + gap;
+      rowHeight = 0;
+      rowItems = [];
+    }
+    rowItems.push({ unit: rect.unit, x: cursorX, w: rect.w, h: rect.h });
+    cursorX += rect.w + gap;
+    rowHeight = Math.max(rowHeight, rect.h);
+  }
+  if (rowItems.length > 0) rows.push({ items: rowItems, y: cursorY, height: rowHeight });
+
+  /**
+   * 行内**垂直居中**：骨骼这类高瘦单元会把整行撑高，
+   * 若其余小器官一律顶对齐，行下方会留下一大片空白。居中后画面密度明显改善。
+   */
+  const placed: { unit: string; x: number; y: number; w: number; h: number }[] = [];
+  for (const row of rows) {
+    for (const item of row.items) {
+      placed.push({ ...item, y: row.y + (row.height - item.h) / 2 });
+    }
+  }
+  const height = rows.length > 0 ? rows[rows.length - 1].y + rows[rows.length - 1].height : 0;
+  return { placed, height };
+}
+
+/**
+ * 把结构组排到同一平面上。
+ *
+ * 纯函数：布局只由组的真实几何与单元归属决定，位移再乘以给定进度。
+ * `progress = 0` 时每个 offset 都精确为 `[0, 0, 0]`，因此展开/组装严格可逆。
+ *
+ * @param bodyMaxDim 整具人体包围盒的最大边，用来把间距换算成与模型同尺度的距离
+ * @param onlySystemId 系统筛选：只对可见系统重新打包，被隐藏的器官不再占据格子
+ */
+export function computePlanarLayout(
+  groups: readonly LayoutGroup[],
   progress: number,
-  maxRadius: number = Number.POSITIVE_INFINITY,
-  bodyRadius: number = 0,
-): ExplosionOffset[] {
+  bodyMaxDim: number,
+  options?: { gapRatio?: number; aspect?: number; onlySystemId?: string | null },
+): PlanarLayout {
+  const gapRatio = options?.gapRatio ?? PLANAR_GAP_RATIO;
+  const aspect = options?.aspect ?? PLANAR_ASPECT;
+  const onlySystemId = options?.onlySystemId ?? null;
+  const shellGroups = groups.filter((group) => group.shell);
+  const layoutGroups = groups.filter(
+    (group) => !group.shell && (!onlySystemId || group.system === onlySystemId),
+  );
+
+  const emptyBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+  if (layoutGroups.length === 0) {
+    return {
+      offsets: groups.map((group) => ({ id: group.id, offset: [0, 0, 0] as [number, number, number] })),
+      bounds: emptyBounds,
+      unitCount: 0,
+      unitDepthSpread: 0,
+    };
+  }
+
+  const gap = Math.max(1e-4, bodyMaxDim * gapRatio);
+
+  /* 1. 按单元聚合真实前视包围盒 */
+  const units = new Map<string, UnitBox>();
+  for (const group of layoutGroups) {
+    const [cx, cy, cz] = group.center;
+    const [sx, sy, sz] = group.size;
+    const halfX = Math.max(Math.abs(sx), 1e-4) / 2;
+    const halfY = Math.max(Math.abs(sy), 1e-4) / 2;
+    const halfZ = Math.max(Math.abs(sz), 1e-4) / 2;
+    const existing = units.get(group.unit);
+    if (existing) {
+      existing.minX = Math.min(existing.minX, cx - halfX);
+      existing.maxX = Math.max(existing.maxX, cx + halfX);
+      existing.minY = Math.min(existing.minY, cy - halfY);
+      existing.maxY = Math.max(existing.maxY, cy + halfY);
+      existing.minZ = Math.min(existing.minZ, cz - halfZ);
+      existing.maxZ = Math.max(existing.maxZ, cz + halfZ);
+    } else {
+      units.set(group.unit, {
+        unit: group.unit,
+        minX: cx - halfX,
+        maxX: cx + halfX,
+        minY: cy - halfY,
+        maxY: cy + halfY,
+        minZ: cz - halfZ,
+        maxZ: cz + halfZ,
+        centerX: cx,
+        centerY: cy,
+        centerZ: cz,
+      });
+    }
+  }
+  for (const unit of units.values()) {
+    unit.centerX = (unit.minX + unit.maxX) / 2;
+    unit.centerY = (unit.minY + unit.maxY) / 2;
+    unit.centerZ = (unit.minZ + unit.maxZ) / 2;
+  }
+
+  /* 2. 排序 + 估算目标总宽（等面积正方形的放宽版），再打包 */
+  const unitRects = [...units.values()]
+    .map((unit) => ({
+      unit: unit.unit,
+      w: Math.max(1e-3, unit.maxX - unit.minX),
+      h: Math.max(1e-3, unit.maxY - unit.minY),
+    }))
+    .sort((a, b) => b.h - a.h || a.unit.localeCompare(b.unit));
+
+  const totalArea = unitRects.reduce((sum, rect) => sum + (rect.w + gap) * (rect.h + gap), 0);
+  const targetWidth = Math.max(...unitRects.map((rect) => rect.w), Math.sqrt(totalArea * aspect));
+  const { placed, height } = shelfPack(unitRects, targetWidth, gap);
+  const placedWidth = placed.reduce((max, rect) => Math.max(max, rect.x + rect.w), 0);
+
+  /* 3. 打包结果居中到原点：相机只需要看一个以原点为中心的平面 */
+  const offsetX = placedWidth / 2;
+  const offsetY = height / 2;
+  const targets = new Map<string, { x: number; y: number; z: number }>();
+  for (const rect of placed) {
+    targets.set(rect.unit, {
+      x: rect.x + rect.w / 2 - offsetX,
+      y: -(rect.y + rect.h / 2 - offsetY), // 屏幕向上为 +y，货架向下增长，这里翻转
+      z: 0,
+    });
+  }
+
+  /* 4. 单元内所有结构平移同一向量：器官自身形状保持不变，整体落到统一平面 */
   const t = clampProgress(progress);
-  // smoothstep：两端变化率趋近 0，组装态与拆解态都更安静
   const eased = t * t * (3 - 2 * t);
-  return groups.map((group) => {
-    const radial = new THREE.Vector3(group.center[0] - axis[0], 0, group.center[2] - axis[2]);
-    if (radial.lengthSq() < 1e-10) radial.set(0, 0, 1); // 恰好落在中轴上的组，给一个确定的兜底方向
-    radial.normalize();
-    const direction = radial.add(new THREE.Vector3(0, EXPLOSION_UP_BIAS, 0)).normalize();
-    const scale = Math.max(EXPLOSION_MIN_RADIUS, Math.min(group.radius, maxRadius));
-    const layer = Math.max(0, group.layer ?? 0);
-    const distance = eased * (scale * EXPLOSION_SPREAD + layer * bodyRadius * EXPLOSION_LAYER_STEP_RATIO);
-    // 组装态的位移就是精确的零向量（避免出现 -0 这种无意义的符号）
-    if (distance === 0) return { id: group.id, offset: [0, 0, 0] };
-    const offset: [number, number, number] = [
-      direction.x * distance,
-      direction.y * distance,
-      direction.z * distance,
-    ];
-    return { id: group.id, offset };
+  const offsets: LayoutOffset[] = groups.map((group) => {
+    if (group.shell) return { id: group.id, offset: [0, 0, 0] };
+    // 被系统筛选隐藏的组不参与布局，位移归零（它们本身已经不可见）
+    if (onlySystemId && group.system !== onlySystemId) {
+      return { id: group.id, offset: [0, 0, 0] };
+    }
+    const unit = units.get(group.unit);
+    const target = targets.get(group.unit);
+    if (!unit || !target) return { id: group.id, offset: [0, 0, 0] };
+    const dx = target.x - unit.centerX;
+    const dy = target.y - unit.centerY;
+    const dz = target.z - unit.centerZ;
+    if (eased === 0) return { id: group.id, offset: [0, 0, 0] };
+    return {
+      id: group.id,
+      offset: [dx * eased, dy * eased, dz * eased],
+    };
   });
+
+  const minX = -placedWidth / 2;
+  const maxX = placedWidth / 2;
+  const minY = -height / 2;
+  const maxY = height / 2;
+
+  // 外壳分组不参与布局，但仍要出现在返回值里（调用方按 id 查表）
+  for (const group of shellGroups) {
+    if (!offsets.some((item) => item.id === group.id)) {
+      offsets.push({ id: group.id, offset: [0, 0, 0] });
+    }
+  }
+
+  /* 单元中心 z 的原始跨度 × (1 - eased)：展开完成后应当收敛到 0 */
+  const unitZs = [...units.values()].map((unit) => unit.centerZ);
+  const rawSpread = unitZs.length > 0 ? Math.max(...unitZs) - Math.min(...unitZs) : 0;
+
+  return {
+    offsets,
+    bounds: { minX, minY, maxX, maxY },
+    unitCount: units.size,
+    unitDepthSpread: rawSpread * (1 - eased),
+  };
 }
