@@ -1,21 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import {
-  EXPLOSION_LAYER_STEP_RATIO,
-  EXPLOSION_SPREAD,
   SHELL_FADE_END,
   buildParentMap,
   buildStructureHit,
   clampProgress,
-  computeBodyAxis,
-  computeExplosionOffsets,
-  explosionMaxRadius,
+  computePlanarLayout,
   isPublicDisplayExcluded,
   readableStructureName,
   resolveGroupMembers,
   resolveOrganStructure,
   shellOpacity,
-  type ExplosionGroup,
+  type LayoutGroup,
 } from './fullBody';
 
 /**
@@ -69,13 +65,6 @@ describe('拆解进度钳制', () => {
   });
 });
 
-describe('人体纵轴', () => {
-  it('取包围盒中心的水平分量，竖直分量为 0', () => {
-    const box = new THREE.Box3(new THREE.Vector3(-1, -1, -1), new THREE.Vector3(1, 3, 1));
-    expect(computeBodyAxis(box)).toEqual([0, 0, 0]);
-  });
-});
-
 describe('结构父子关系表', () => {
   it('只登记带 anatomyParentId 的节点，并保持正确的父指向', () => {
     const parents = buildParentMap(sampleTree());
@@ -113,70 +102,100 @@ describe('分组结构的后代归并', () => {
   });
 });
 
-describe('拆解位移', () => {
-  const axis: [number, number, number] = [0, 0, 0];
-  const groups: ExplosionGroup[] = [
-    { id: 'heart', center: [0.4, 1.2, 0.1], radius: 0.12 },
-    { id: 'spleen', center: [-0.3, 0.9, 0.05], radius: 0.08 },
+describe('平面展开布局', () => {
+  const bodyMaxDim = 1.8;
+  const groups: LayoutGroup[] = [
+    {
+      id: 'heart',
+      center: [0.4, 1.2, 0.1],
+      size: [0.2, 0.24, 0.16],
+      unit: 'heart',
+      system: 'cardiovascular',
+    },
+    {
+      id: 'spleen',
+      center: [-0.3, 0.9, 0.05],
+      size: [0.12, 0.16, 0.1],
+      unit: 'spleen',
+      system: 'lymphatic',
+    },
+    {
+      id: 'body-shell',
+      center: [0, 0.9, 0],
+      size: [0.9, 1.8, 0.5],
+      unit: 'regional-anatomy',
+      system: 'regional-anatomy',
+      shell: true,
+    },
   ];
 
+  const offsetOf = (layout: ReturnType<typeof computePlanarLayout>, id: string) =>
+    layout.offsets.find((item) => item.id === id)!.offset;
+
   it('progress = 0 时每个组的位移都恰好为 0（组装态）', () => {
-    const offsets = computeExplosionOffsets(groups, axis, 0);
-    expect(offsets).toHaveLength(groups.length);
-    for (const item of offsets) {
-      expect(item.offset).toEqual([0, 0, 0]);
-    }
+    const layout = computePlanarLayout(groups, 0, bodyMaxDim);
+    expect(layout.offsets).toHaveLength(groups.length);
+    for (const item of layout.offsets) expect(item.offset).toEqual([0, 0, 0]);
   });
 
-  it('progress = 1 时确实产生非 0 位移（拆解态）', () => {
-    const offsets = computeExplosionOffsets(groups, axis, 1);
-    for (const item of offsets) {
-      const length = Math.hypot(item.offset[0], item.offset[1], item.offset[2]);
-      expect(length).toBeGreaterThan(0);
-      // 位移量由该组自身半径定标，因此不会超过「半径 × 强度」的上限
-      const group = groups.find((g) => g.id === item.id)!;
-      expect(length).toBeLessThanOrEqual(group.radius * EXPLOSION_SPREAD + 1e-9);
+  it('progress = 1 时每个单元都被收拢到同一深度平面附近', () => {
+    const layout = computePlanarLayout(groups, 1, bodyMaxDim);
+    for (const group of groups.filter((item) => !item.shell)) {
+      const offset = offsetOf(layout, group.id);
+      // 单元中心 z 被拉到 0：原始 z + 位移 ≈ 0
+      expect(Math.abs(group.center[2] + offset[2])).toBeLessThan(1e-6);
     }
+    // 外壳不参与打包，保持原位（它由不透明度渐隐处理）
+    expect(offsetOf(layout, 'body-shell')).toEqual([0, 0, 0]);
+    expect(layout.unitCount).toBe(2);
   });
 
-  it('同一进度两次调用结果完全相同（可复现，无隐藏状态）', () => {
-    const first = computeExplosionOffsets(groups, axis, 0.5);
-    const second = computeExplosionOffsets(groups, axis, 0.5);
-    expect(second).toEqual(first);
+  it('展开后单元确实在二维平面上分开，而不是原地不动', () => {
+    const layout = computePlanarLayout(groups, 1, bodyMaxDim);
+    const heart = offsetOf(layout, 'heart');
+    const spleen = offsetOf(layout, 'spleen');
+    expect(Math.hypot(heart[0], heart[1])).toBeGreaterThan(0);
+    expect(Math.hypot(spleen[0], spleen[1])).toBeGreaterThan(0);
+    // 两个单元的目标中心不同（不会叠在同一处）
+    const heartTarget = [groups[0].center[0] + heart[0], groups[0].center[1] + heart[1]];
+    const spleenTarget = [groups[1].center[0] + spleen[0], groups[1].center[1] + spleen[1]];
+    expect(Math.hypot(heartTarget[0] - spleenTarget[0], heartTarget[1] - spleenTarget[1])).toBeGreaterThan(
+      0.05,
+    );
+  });
+
+  it('同一进度两次调用结果完全相同（确定性，无隐藏状态）', () => {
+    expect(computePlanarLayout(groups, 0.5, bodyMaxDim)).toEqual(
+      computePlanarLayout(groups, 0.5, bodyMaxDim),
+    );
   });
 
   it('反复 0 → 1 → 0 → 1 不累计偏移', () => {
-    const atZero = computeExplosionOffsets(groups, axis, 0);
-    const atOne = computeExplosionOffsets(groups, axis, 1);
-    computeExplosionOffsets(groups, axis, 1);
-    computeExplosionOffsets(groups, axis, 0);
-    computeExplosionOffsets(groups, axis, 1);
-    expect(computeExplosionOffsets(groups, axis, 0)).toEqual(atZero);
-    expect(computeExplosionOffsets(groups, axis, 1)).toEqual(atOne);
+    const atZero = computePlanarLayout(groups, 0, bodyMaxDim);
+    const atOne = computePlanarLayout(groups, 1, bodyMaxDim);
+    computePlanarLayout(groups, 1, bodyMaxDim);
+    computePlanarLayout(groups, 0, bodyMaxDim);
+    computePlanarLayout(groups, 1, bodyMaxDim);
+    expect(computePlanarLayout(groups, 0, bodyMaxDim)).toEqual(atZero);
+    expect(computePlanarLayout(groups, 1, bodyMaxDim)).toEqual(atOne);
   });
 
   it('超出范围的进度按钳制后的值计算', () => {
-    expect(computeExplosionOffsets(groups, axis, 2)).toEqual(
-      computeExplosionOffsets(groups, axis, 1),
+    expect(computePlanarLayout(groups, 2, bodyMaxDim)).toEqual(
+      computePlanarLayout(groups, 1, bodyMaxDim),
     );
-    expect(computeExplosionOffsets(groups, axis, -3)).toEqual(
-      computeExplosionOffsets(groups, axis, 0),
+    expect(computePlanarLayout(groups, -3, bodyMaxDim)).toEqual(
+      computePlanarLayout(groups, 0, bodyMaxDim),
     );
   });
 
-  it('整体外壳这类超大组的位移被半径上限压住，不会把人体推出画面', () => {
-    const body = new THREE.Box3(new THREE.Vector3(-0.9, -0.9, -0.9), new THREE.Vector3(0.9, 1.8, 0.9));
-    const cap = explosionMaxRadius(body);
-    expect(cap).toBeGreaterThan(0);
-    // 半径远大于整具人体的组（真实数据里 body-shell 半径 ≈ 人体半径）
-    const giant: ExplosionGroup[] = [{ id: 'body-shell', center: [0, 0.9, 0], radius: 5 }];
-    const [offset] = computeExplosionOffsets(giant, axis, 1, cap);
-    const length = Math.hypot(offset.offset[0], offset.offset[1], offset.offset[2]);
-    expect(length).toBeGreaterThan(0);
-    expect(length).toBeLessThanOrEqual(cap * EXPLOSION_SPREAD + 1e-9);
-    // 未给上限时不受约束（保持向后兼容）
-    const [uncapped] = computeExplosionOffsets(giant, axis, 1);
-    expect(Math.hypot(...uncapped.offset)).toBeGreaterThan(length);
+  it('系统筛选后重新布局：被隐藏的系统不再占据格子', () => {
+    const filtered = computePlanarLayout(groups, 1, bodyMaxDim, { onlySystemId: 'cardiovascular' });
+    expect(filtered.unitCount).toBe(1);
+    // 被筛掉的脾脏位移归零
+    expect(offsetOf(filtered, 'spleen')).toEqual([0, 0, 0]);
+    // 仍可见的心脏照常展开
+    expect(Math.hypot(...offsetOf(filtered, 'heart'))).toBeGreaterThan(0);
   });
 });
 
@@ -202,64 +221,21 @@ describe('体表外壳的渐进隐去', () => {
   });
 });
 
-describe('按解剖系统分层位移', () => {
-  const axis: [number, number, number] = [0, 0, 0];
-  const bodyRadius = 0.95;
-
-  /** 同一位置、同一尺寸，只有解剖层不同：位移差异必须完全来自分层。 */
-  function layered(layer: number): ExplosionGroup {
-    return { id: `group-${layer}`, center: [0.3, 1, 0], radius: 0.1, layer };
-  }
-
-  it('层号越大位移越远，内层不会被外层挡住', () => {
-    // 数组顺序即 0 / 1 / 2 / 4 层，比较它们的位移长度
-    const groups = [layered(0), layered(1), layered(2), layered(4)];
-    const offsets = computeExplosionOffsets(groups, axis, 1, Number.POSITIVE_INFINITY, bodyRadius);
-    const distance = (index: number) =>
-      Math.hypot(
-        offsets[index].offset[0],
-        offsets[index].offset[1],
-        offsets[index].offset[2],
-      );
-    expect(distance(0)).toBeLessThan(distance(1));
-    expect(distance(1)).toBeLessThan(distance(2));
-    expect(distance(2)).toBeLessThan(distance(3));
-  });
-
-  it('每层额外距离恰为 人体半径 × 分层系数', () => {
-    const base: ExplosionGroup[] = [layered(0)];
-    const one: ExplosionGroup[] = [layered(1)];
-    const narrow = computeExplosionOffsets(base, axis, 1, Number.POSITIVE_INFINITY, bodyRadius)[0];
-    const wide = computeExplosionOffsets(one, axis, 1, Number.POSITIVE_INFINITY, bodyRadius)[0];
-    const delta =
-      Math.hypot(wide.offset[0], wide.offset[1], wide.offset[2]) -
-      Math.hypot(narrow.offset[0], narrow.offset[1], narrow.offset[2]);
-    expect(delta).toBeCloseTo(bodyRadius * EXPLOSION_LAYER_STEP_RATIO, 9);
-  });
-
-  it('缺省层号（未登记系统）等同于第 0 层，保持旧行为', () => {
-    const groups: ExplosionGroup[] = [{ id: 'x', center: [0.3, 1, 0], radius: 0.1 }];
-    const withoutBody = computeExplosionOffsets(groups, axis, 1);
-    const withBody = computeExplosionOffsets(groups, axis, 1, Number.POSITIVE_INFINITY, bodyRadius);
-    expect(withBody).toEqual(withoutBody);
-  });
-});
-
 describe('公开展示过滤（中性化默认人体）', () => {
   it('生殖系统的网格一律隐去', () => {
     expect(isPublicDisplayExcluded('reproductive', 'testes-testis-left__Testis.l')).toBe(true);
     expect(isPublicDisplayExcluded('reproductive', 'prostate__Prostate')).toBe(true);
   });
 
-  it('体表上构成外生殖器的那块几何按真实节点名隐去（仅过滤系统并不够）', () => {
-    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital region.l')).toBe(true);
-    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital region.r')).toBe(true);
+  it('骨盆处的体表外壳保留，避免出现缺口（只隐去毛发，不整块删区域）', () => {
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital region.l')).toBe(false);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital region.r')).toBe(false);
     expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Pubic hairs')).toBe(true);
   });
 
   it('节点名被 GLTFLoader 清洗（空格与点变下划线）后仍能正确匹配', () => {
-    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital_region_l')).toBe(true);
-    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital_region_r')).toBe(true);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital_region_l')).toBe(false);
+    expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Urogenital_region_r')).toBe(false);
     expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Pubic_hairs')).toBe(true);
     expect(isPublicDisplayExcluded('regional-anatomy', 'body-shell__Mammary_region_l')).toBe(false);
   });

@@ -17,6 +17,8 @@ export interface ReturnSnapshot {
   selectedOrganId: string | null;
   /** 展开程度 0..1 */
   explode: number;
+  /** 进入详情前左操作栏选择的系统筛选（atlas 系统 ID；null = 全部） */
+  systemFilter?: string | null;
   /** 来源视图（本工程路径） */
   view: string;
   /** 相机取景（可序列化：位置与观察目标） */

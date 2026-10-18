@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CellStage, FullBodyStage } from '../../three/lazyStages';
 import { useStageState } from '../../three/useStageState';
 import { StageBoundary } from '../../components/StageBoundary';
@@ -16,7 +17,6 @@ import {
 import { markDiscovered } from '../../services/progress';
 import {
   ENTITY_MAP,
-  SCALE_MAP,
   SYSTEMS,
   getChildren,
   getEntity,
@@ -112,6 +112,7 @@ function structureInfoForTarget(targetId: string): StructureInfo {
     name: STRUCTURE_LABELS[targetId] ?? null,
     system: null,
     partName: null,
+    depthToKnown: 0,
   };
 }
 
@@ -204,7 +205,7 @@ function buildModel(view: ResolvedView): WorkbenchModel {
         entryIsolate: false,
         pageTitle: view.kind === 'cover' ? '身体的一天 · 首页' : '人体总览',
         subjectLabel: '人体总览',
-        hudNote: '真实解剖模型 · 从完整人体向内逐层探索',
+        hudNote: '',
         emptyHint: '点选任一结构，这里显示它的知识与健康关联。',
       };
     }
@@ -214,8 +215,24 @@ function buildModel(view: ResolvedView): WorkbenchModel {
 /** 滚轮每格推进的拆解量：约 14 格走满 0 → 1，手感既连续又不至于太慢 */
 const EXPLODE_WHEEL_STEP = 0.07;
 
+/**
+ * 「点一下就进入器官详解」的入口深度。
+ *
+ * 0 = 只有点到该器官结构本身才跳转（脑：端脑 / 小脑 / 脑干）；
+ * 1 = 允许直接子结构（心脏的四个腔、肺的五个叶——它们是该器官唯一可点的几何）；
+ * 更深层的局部（脑回、脑沟等）**不跳转**，留在人体探索里看它自己的知识。
+ * 全部来自 `organBridge` 已核实的器官，不做字符串猜测。
+ */
+const ORGAN_ENTRY_DEPTH: Record<string, number> = {
+  heart: 1,
+  lungs: 1,
+  brain: 0,
+  spleen: 0,
+};
+
 export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   const { reportProgress, reportReady } = useStartupActions();
+  const navigate = useNavigate();
 
   const model = useMemo(() => buildModel(view), [view.path]); // eslint-disable-line react-hooks/exhaustive-deps
   const stage = useStageState(null);
@@ -230,6 +247,8 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   /** 左操作栏的系统筛选（atlas 系统 ID）；null = 显示全部系统 */
   const [systemFilter, setSystemFilter] = useState<string | null>(null);
+  /** 舞台就绪后上报的真实统计：系统可见网格数、器官局部结构 */
+  const [stageStats, setStageStats] = useState<FullBodyStats | null>(null);
 
   const current = history.length > 0 ? history[history.length - 1] : null;
   const canGoBack = history.length > 1;
@@ -244,6 +263,7 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   const handleReady = useCallback(
     (stats: FullBodyStats) => {
       devState.current.stats = stats;
+      setStageStats(stats);
       exposeDevState();
       reportReady();
     },
@@ -269,18 +289,26 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
      * 详情**直链**打开时读不到上下文，走下面的默认重置。
      */
     const snapshot = view.kind === 'body' ? readReturnContext() : null;
-    if (snapshot && snapshot.selectedStructureId) {
-      setHistory([
-        { targetId: snapshot.selectedStructureId, info: structureInfoForTarget(snapshot.selectedStructureId) },
-      ]);
+    if (snapshot) {
+      setHistory(
+        snapshot.selectedStructureId
+          ? [
+              {
+                targetId: snapshot.selectedStructureId,
+                info: structureInfoForTarget(snapshot.selectedStructureId),
+              },
+            ]
+          : [],
+      );
       setExplode(Math.min(1, Math.max(0, snapshot.explode)));
+      setSystemFilter(snapshot.systemFilter ?? null);
       clearReturnContext();
     } else {
       setHistory([]);
       setExplode(0);
+      setSystemFilter(null);
     }
     setHovered(null);
-    setSystemFilter(null);
     setFocusNonce((n) => n + 1);
     setResetNonce((n) => n + 1);
     if (!model.isCell && model.entity) markDiscovered(model.entity.id);
@@ -325,22 +353,89 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
   ]);
 
   /* ---------- 交互 ---------- */
-  const handleSelect = useCallback((hit: StructureHit | null) => {
-    if (!hit) {
-      setHistory([]); // 点模型空白处 = 回到本页默认取景
-      return;
-    }
-    const info = describeStructure(hit);
-    setHistory((prev) => {
-      const top = prev[prev.length - 1];
-      // 同一目标不重复入栈，只更新它内部更细的那一层
-      if (top && top.targetId === hit.targetId) {
-        return [...prev.slice(0, -1), { targetId: hit.targetId, info }];
-      }
-      return [...prev, { targetId: hit.targetId, info }];
-    });
-    if (info.entityId) markDiscovered(info.entityId);
+
+  /**
+   * 左操作栏只列出**当前真实可见**的系统。
+   * `systemMeshCount` 来自舞台实测（已扣除公开展示过滤），
+   * 因此不会出现「点了之后画面全空」的筛选项（例如生殖系统）。
+   */
+  const availableSystems = useMemo(() => {
+    const counts = stageStats?.systemMeshCount ?? null;
+    if (!counts) return SYSTEMS;
+    return SYSTEMS.filter((system) => (counts[system.atlasId] ?? 0) > 0);
+  }, [stageStats]);
+
+  /**
+   * 切换系统筛选。
+   *
+   * 可见范围变了，旧选中 / 历史 / 熄灭中的聚焦目标都必须一起清掉：
+   * 否则焦点会指向已经被隐藏的网格，表现为「点了没反应、镜头不动、右栏还是上一个器官」。
+   * 同时递增 resetNonce，让相机按新系统的真实包围盒重新取景。
+   */
+  const handleSystemFilter = useCallback((next: string | null) => {
+    setSystemFilter(next);
+    setHistory([]);
+    setHovered(null);
+    setFocusNonce((n) => n + 1);
+    setResetNonce((n) => n + 1);
   }, []);
+
+  const handleSelect = useCallback(
+    (hit: StructureHit | null) => {
+      /* 空白处：分层返回。详情页先取消热点，没有热点时回到人体探索 */
+      if (!hit) {
+        if (view.kind === 'detail') {
+          if (current) {
+            setHistory([]);
+            return;
+          }
+          navigate(ROUTES.explore);
+          return;
+        }
+        setHistory([]); // 点模型空白处 = 回到本页默认取景
+        return;
+      }
+
+      const info = describeStructure(hit);
+
+      /**
+       * 点中**完整器官本体**时直接进入器官详解。
+       * 只在 organBridge 已核实的器官、且点击深度属于「本体 / 直接子结构」时触发；
+       * 脑回、脑沟这类更深的局部留在当前页显示它自己的知识。
+       */
+      const organId = organTargetForStructure(hit.targetId);
+      if (organId && isVerifiedOrgan(organId) && view.kind !== 'detail') {
+        const allowedDepth = ORGAN_ENTRY_DEPTH[organId] ?? 0;
+        const isOrganBody = info.depthToKnown >= 0 && info.depthToKnown <= allowedDepth;
+        if (isOrganBody) {
+          const probe = devState.current.probe as FullBodyProbe | undefined;
+          saveReturnContext({
+            selectedStructureId: null,
+            selectedOrganId: organId,
+            explode,
+            systemFilter,
+            view: view.path,
+            camera: probe
+              ? { position: probe.camera.position, target: probe.camera.target }
+              : null,
+          });
+          navigate(ROUTES.detail(organId));
+          return;
+        }
+      }
+
+      setHistory((prev) => {
+        const top = prev[prev.length - 1];
+        // 同一目标不重复入栈，只更新它内部更细的那一层
+        if (top && top.targetId === hit.targetId) {
+          return [...prev.slice(0, -1), { targetId: hit.targetId, info }];
+        }
+        return [...prev, { targetId: hit.targetId, info }];
+      });
+      if (info.entityId) markDiscovered(info.entityId);
+    },
+    [current, explode, navigate, systemFilter, view.kind, view.path],
+  );
 
   const handleHover = useCallback((hit: StructureHit | null) => {
     setHovered(hit ? describeStructure(hit) : null);
@@ -356,28 +451,36 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
     setExplode((value) => Math.min(1, Math.max(0, value + direction * EXPLODE_WHEEL_STEP)));
   }, []);
 
-  /** 取消选中：回到选中前的视角，而不是页面的默认取景 */
+  /** 取消选中：回到选中前的视角，而不是页面的默认取景；详情页无热点时返回探索 */
   const resetView = useCallback(() => {
     if (model.isCell) {
       selectEntity(null);
       requestReset();
       return;
     }
+    if (view.kind === 'detail' && !current) {
+      navigate(ROUTES.explore);
+      return;
+    }
     setHistory([]);
     setHovered(null);
-  }, [model.isCell, selectEntity, requestReset]);
+  }, [model.isCell, selectEntity, requestReset, view.kind, current, navigate]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented) return;
-      const hasSelection = model.isCell ? Boolean(stage.selectedEntityId) : Boolean(current);
-      if (!hasSelection) return;
+      /* 详情页即使没有热点，Esc 也要能返回探索（分层语义与点空白一致） */
+      if (model.isCell) {
+        if (!stage.selectedEntityId) return;
+      } else if (!current && view.kind !== 'detail') {
+        return;
+      }
       event.preventDefault();
       resetView();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [resetView, model.isCell, stage.selectedEntityId, current]);
+  }, [resetView, model.isCell, stage.selectedEntityId, current, view.kind]);
 
   /* ---------- 选中派生 ---------- */
   const selectionEntityId = model.isCell ? null : current?.info.entityId ?? null;
@@ -413,6 +516,14 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
 
   const isDetail = view.kind === 'detail';
 
+  /** 详情页的局部结构热点：只来自舞台实测的真实直接子结构 */
+  const detailParts = useMemo(() => {
+    if (!isDetail) return [];
+    const organId = model.entryStructureId;
+    if (!organId) return [];
+    return stageStats?.organParts?.[organId] ?? [];
+  }, [isDetail, model.entryStructureId, stageStats]);
+
   /**
    * 纸条主体：选中映射到实体时讲它；否则讲本页主体。
    * 人体层未选中结构时**不重复展示**「人体总览」这张固定默认卡，只给一句引导。
@@ -440,17 +551,18 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
     return { to, label: '查看器官详解', note: `进入「${name}」的独立页面，只观察这一个器官。` };
   }, [isDetail, current, model.entryStructureId, view.path]);
 
-  /** 进入详情前保存返回上下文：结构 ID / 展开程度 / 来源视图 / 相机取景（可序列化） */
+  /** 进入详情前保存返回上下文：结构 ID / 展开程度 / 系统筛选 / 来源视图 / 相机取景 */
   const handleDrillNavigate = useCallback(() => {
     const probe = devState.current.probe as FullBodyProbe | undefined;
     saveReturnContext({
       selectedStructureId: current?.targetId ?? model.entryStructureId ?? null,
       selectedOrganId: view.organId ?? null,
       explode,
+      systemFilter,
       view: view.path,
       camera: probe ? { position: probe.camera.position, target: probe.camera.target } : null,
     });
-  }, [current, model.entryStructureId, explode, view.organId, view.path]);
+  }, [current, model.entryStructureId, explode, systemFilter, view.organId, view.path]);
 
   const cellParts = useMemo(
     () => (model.isCell && model.entity ? getChildren(model.entity.id) : null),
@@ -462,26 +574,25 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
       <h1 className="bd-sr-only">{model.pageTitle}</h1>
 
       {showControls ? (
-        <aside className="bd-wb-control" aria-label="操作栏">
+        <aside className="bd-wb-control" aria-label="系统筛选">
           <div className="bd-wb-control__block">
-            <span className="bd-label">系统筛选</span>
             <div className="bd-wb-control__chips">
               <button
                 type="button"
                 className="bd-chip"
                 data-active={systemFilter === null}
-                onClick={() => setSystemFilter(null)}
+                onClick={() => handleSystemFilter(null)}
               >
                 全部
               </button>
-              {SYSTEMS.map((system) => (
+              {availableSystems.map((system) => (
                 <button
                   key={system.atlasId}
                   type="button"
                   className="bd-chip"
                   data-active={systemFilter === system.atlasId}
                   onClick={() =>
-                    setSystemFilter(systemFilter === system.atlasId ? null : system.atlasId)
+                    handleSystemFilter(systemFilter === system.atlasId ? null : system.atlasId)
                   }
                 >
                   {system.nameZh}
@@ -490,12 +601,9 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
             </div>
           </div>
 
-          <div className="bd-wb-control__block">
-            <span className="bd-label">当前对象</span>
-            <p className="bd-wb-control__status">
-              {current?.info.name ?? model.entity?.nameZh ?? '未选中结构'}
-            </p>
-          </div>
+          {current?.info.name ? (
+            <p className="bd-wb-control__status">{current.info.name}</p>
+          ) : null}
         </aside>
       ) : null}
 
@@ -528,44 +636,70 @@ export function ExploreWorkbench({ view }: { view: ResolvedView }) {
           </StageBoundary>
 
           <div className="bd-wb-hud">
-            <span className="bd-label">
-              尺度 · {SCALE_MAP[model.scale]?.labelZh ?? model.scale}
-            </span>
-            <span className="bd-caption">{model.hudNote}</span>
             {hovered && !model.isCell ? (
               <span className="bd-meta">
-                指针指向：{hovered.name ?? '未命名结构'}
-                {hovered.system ? ` · ${hovered.system}` : ''}
+                {hovered.name ?? ''}
+                {hovered.name && hovered.system ? ' · ' : ''}
+                {hovered.system ?? ''}
               </span>
             ) : null}
           </div>
 
+          {/* 详情页专用：这个器官的真实局部结构，点一下就聚焦到它 */}
+          {isDetail && detailParts.length > 0 ? (
+            <div className="bd-wb-parts" aria-label="局部结构">
+              {detailParts.map((part) => (
+                <button
+                  key={part.id}
+                  type="button"
+                  className="bd-chip"
+                  data-active={
+                    current?.info.structureId === part.id || current?.targetId === part.id
+                  }
+                  onClick={() =>
+                    setHistory([
+                      {
+                        targetId: part.id,
+                        info: {
+                          structureId: part.id,
+                          entityId: null,
+                          name: part.name,
+                          system: null,
+                          partName: null,
+                          depthToKnown: 1,
+                        },
+                      },
+                    ])
+                  }
+                >
+                  {part.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           <div className="bd-wb-stage__bottom">
-            {!model.isCell ? (
+            {!model.isCell && !isDetail ? (
               <div className="bd-wb-explode">
-                <span className="bd-label">拆解</span>
+                <span className="bd-label">展开</span>
                 <input
                   type="range"
                   min={0}
                   max={100}
                   step={1}
                   value={Math.round(explode * 100)}
-                  aria-label="拆解进度"
+                  aria-label="展开进度"
                   data-testid="explode-slider"
                   onChange={(event) => setExplode(Number(event.target.value) / 100)}
                 />
                 <span className="bd-caption">{Math.round(explode * 100)}%</span>
               </div>
-            ) : (
+            ) : model.isCell ? (
               <span className="bd-caption">{cellParts?.length ?? 0} 个可点选部件</span>
-            )}
+            ) : null}
 
             <span className="bd-caption bd-wb-stage__hint bd-desktop-only">
-              {model.isCell
-                ? '拖动旋转 · 滚轮缩放 · 点击部件查看'
-                : current
-                  ? '滚轮深入观察 · 拖动旋转 · 点空白或 Esc 返回'
-                  : '滚轮拆解/组装 · 拖动旋转 · 点击结构选中'}
+              {model.isCell || isDetail ? '' : current ? '点空白返回' : '滚动展开'}
             </span>
 
             <button

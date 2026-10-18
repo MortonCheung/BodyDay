@@ -3,21 +3,22 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, useGLTF, useProgress } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  EXPLOSION_SYSTEM_LAYER,
   FULL_BODY_MODEL_URL,
+  PLANAR_UNIT_FALLBACK,
+  PLANAR_UNIT_IDS,
   SHELL_FADE_END,
   SHELL_STRUCTURE_ID,
   STRUCTURE_TINT,
   buildParentMap,
   buildStructureHit,
   clampProgress,
-  computeBodyAxis,
-  computeExplosionOffsets,
-  explosionMaxRadius,
+  computePlanarLayout,
   isPublicDisplayExcluded,
+  readableStructureName,
   resolveGroupMembers,
   shellOpacity,
-  type ExplosionGroup,
+  type LayoutGroup,
+  type PlanarLayout,
 } from './fullBody';
 import { FOREGROUND_STRUCTURE_IDS, type StructureHit } from '../services/atlas';
 
@@ -80,6 +81,10 @@ export interface FullBodyStats {
   uniqueAnatomyIds: number;
   /** 器官分组归并出的网格数（含自身网格） */
   groupCounts: Record<string, number>;
+  /** 每个解剖系统经公开展示过滤后**真实可见**的网格数；为 0 的系统不能出现在筛选里 */
+  systemMeshCount: Record<string, number>;
+  /** 已验证器官的直接局部结构（仅结构数量合理的器官有值，用于详情页热点） */
+  organParts: Record<string, { id: string; name: string }[]>;
   /** 从舞台挂载到「装配完成 + 首个有效帧」的实测毫秒数 */
   loadMs: number;
   /** 真实 extras 进入 userData 的证据 */
@@ -115,6 +120,12 @@ export interface FullBodyProbe {
   shellOpacity: number;
   /** 半径最大的若干可位移组：用于判断是否存在「超大组」导致整体飞出 */
   largestGroups: { id: string; radius: number; offsetMagnitude: number; meshCount: number }[];
+  /** 平面展开的真实读数：单元数、二维范围、单元中心深度跨度（越小越接近同一平面） */
+  planar: {
+    unitCount: number;
+    bounds: { minX: number; minY: number; maxX: number; maxY: number } | null;
+    unitDepthSpread: number;
+  };
 }
 
 /** 封面需要的真实字节进度（来自 drei 的全局加载管理器） */
@@ -175,15 +186,18 @@ interface ModelIndex {
   baseBoxes: Map<THREE.Mesh, THREE.Box3>;
   /** 每组当前的位移向量（由 applyExplosion 写入） */
   currentOffsets: Map<string, [number, number, number]>;
+  /** 最近一次平面布局结果（探针据此上报「是否真的排在同一平面上」） */
+  currentLayout: PlanarLayout | null;
   /** 每组包含的网格数 */
   groupMeshCount: Map<string, number>;
-  groups: ExplosionGroup[];
+  groups: LayoutGroup[];
   bounds: THREE.Box3;
-  axis: [number, number, number];
-  /** 单组位移半径上限（由整具人体包围盒推出） */
-  maxRadius: number;
-  /** 整具人体的包围球半径（用于把解剖层换算成真实距离） */
-  bodyRadius: number;
+  /** 整具人体包围盒的最大边（平面展开的间距基准） */
+  bodyMaxDim: number;
+  /** 每个解剖系统在当前过滤条件下**真实可见**的网格数（0 的系统不提供筛选入口） */
+  systemMeshCount: Map<string, number>;
+  /** 每个已验证器官的直接局部结构（id + 真实英文名），供详情页做热点列表 */
+  organParts: Map<string, { id: string; name: string }[]>;
   /** 每个材质的高亮基准值，用于还原 */
   emissiveBase: Map<TintableMaterial, { color: THREE.Color; intensity: number }>;
   /** 每个材质的基准外观（不透明度 / 透明开关 / 写入深度），用于「淡化」与还原 */
@@ -273,6 +287,28 @@ function cloneMeshMaterials(mesh: THREE.Mesh): void {
   }
 }
 
+/**
+ * 结构组 → 平面展开的布局单元。
+ *
+ * 先沿解剖父链找已验证器官（心 / 肺 / 脑 / 脾 …）：找到就把整个器官作为一个单元，
+ * 这样器官自身形状在展开后仍然完整；找不到则退回它所属的解剖系统。
+ * 绝不按名字做模糊匹配。
+ */
+function resolveLayoutUnit(
+  groupId: string,
+  parents: Map<string, string>,
+  system: string | null,
+): string {
+  let cursor: string | undefined = groupId;
+  let guard = 0;
+  while (cursor && guard < 64) {
+    if (PLANAR_UNIT_IDS.includes(cursor)) return cursor;
+    cursor = parents.get(cursor);
+    guard += 1;
+  }
+  return system ?? PLANAR_UNIT_FALLBACK;
+}
+
 function buildModelIndex(model: THREE.Object3D): ModelIndex {
   const meshes: THREE.Mesh[] = [];
   const ids = new Set<string>();
@@ -297,6 +333,15 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
 
   // 材质克隆必须在任何位移/淡化/高亮之前完成一次
   for (const mesh of meshes) cloneMeshMaterials(mesh);
+
+  /**
+   * 体表中性化的边界（如实记录）：
+   *
+   * 试过把该区域顶点沿前后方向压平，实测会在骨盆处产生自相交破洞——比保留原状更糟，
+   * 也违反「不得让身体局部凭空消失」。本工程不使用遮挡方块 / 球体补丁，
+   * 因此**保留该处体表外壳原样**以保证轮廓连续，只隐去毛发几何；
+   * 公开界面不提供生殖系统内容，这一限制已在「关于」页与交付文档中说明。
+   */
 
   // 结构部分统一到暖调色板：让中央模型与暖白纸面属于同一套视觉语言（器官保留真实配色）
   for (const mesh of meshes) {
@@ -360,16 +405,52 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     else grouped.set(groupId, box.clone());
   }
 
-  const groups: ExplosionGroup[] = [];
+  const groups: LayoutGroup[] = [];
   for (const [id, box] of grouped) {
     const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
     const system = groupSystem.get(id) ?? null;
+    const isShellGroup = id === SHELL_STRUCTURE_ID;
     groups.push({
       id,
       center: [center.x, center.y, center.z],
-      radius: box.getSize(new THREE.Vector3()).length() / 2,
-      layer: system ? EXPLOSION_SYSTEM_LAYER[system] ?? 0 : 0,
+      size: [size.x, size.y, size.z],
+      unit: resolveLayoutUnit(id, parents, system),
+      system,
+      shell: isShellGroup,
     });
+  }
+
+  /* 每个解剖系统「过滤后仍真实存在」的网格数：为 0 的系统不能提供筛选按钮 */
+  const systemMeshCount = new Map<string, number>();
+  for (const mesh of meshes) {
+    if (excludedSet.has(mesh)) continue;
+    const system = meshSystem.get(mesh);
+    if (!system) continue;
+    systemMeshCount.set(system, (systemMeshCount.get(system) ?? 0) + 1);
+  }
+
+  /**
+   * 已验证器官的局部结构：只在「直接子结构数量少且可读」时才提供热点列表。
+   * 端脑有 169 个直接子结构，摊成热点反而不可用——这一类返回空，
+   * 详情页改为只讲器官整体的科普内容（不造假热点）。
+   */
+  const organParts = new Map<string, { id: string; name: string }[]>();
+  for (const organId of PLANAR_UNIT_IDS) {
+    const parts: { id: string; name: string }[] = [];
+    for (const mesh of meshes) {
+      if (excludedSet.has(mesh)) continue;
+      const own = anatomyIdOf(mesh);
+      if (!own || own === organId) continue;
+      if (parents.get(own) !== organId) continue;
+      if (parts.some((part) => part.id === own)) continue;
+      const label = readableStructureName(mesh, own);
+      parts.push({ id: own, name: label ?? own });
+    }
+    if (parts.length > 0 && parts.length <= 8) {
+      parts.sort((a, b) => a.name.localeCompare(b.name));
+      organParts.set(organId, parts);
+    }
   }
 
   let triangleCount = 0;
@@ -390,7 +471,8 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     groupCounts[id] = ownMeshes + descendants;
   }
 
-  const bodyRadius = bounds.getSize(new THREE.Vector3()).length() / 2;
+  const bodySize = bounds.getSize(new THREE.Vector3());
+  const bodyMaxDim = Math.max(bodySize.x, bodySize.y, bodySize.z) || 1;
 
   return {
     model,
@@ -404,12 +486,13 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
     basePositions,
     baseBoxes,
     currentOffsets: new Map(),
+    currentLayout: null,
     groupMeshCount,
     groups,
     bounds,
-    axis: computeBodyAxis(bounds),
-    maxRadius: explosionMaxRadius(bounds),
-    bodyRadius,
+    bodyMaxDim,
+    systemMeshCount,
+    organParts,
     emissiveBase: new Map(),
     baseMaterialState,
     opacityTarget: new Map(),
@@ -421,6 +504,8 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
       triangleCount,
       uniqueAnatomyIds: ids.size,
       groupCounts,
+      systemMeshCount: Object.fromEntries(systemMeshCount),
+      organParts: Object.fromEntries(organParts),
       sampleAnatomyId: firstWithExtras ? anatomyIdOf(firstWithExtras) : null,
       sampleAnatomyParentId:
         typeof firstWithExtras?.userData?.anatomyParentId === 'string'
@@ -438,16 +523,11 @@ function buildModelIndex(model: THREE.Object3D): ModelIndex {
 const REUSED_VECTOR = new THREE.Vector3();
 
 /** 按 progress 重算并覆盖每个 mesh 的位移（不累加）。 */
-function applyExplosion(index: ModelIndex, progress: number): void {
-  const offsets = computeExplosionOffsets(
-    index.groups,
-    index.axis,
-    progress,
-    index.maxRadius,
-    index.bodyRadius,
-  );
+function applyExplosion(index: ModelIndex, progress: number, onlySystemId: string | null): void {
+  const layout = computePlanarLayout(index.groups, progress, index.bodyMaxDim, { onlySystemId });
+  index.currentLayout = layout;
   const current = new Map<string, [number, number, number]>();
-  for (const item of offsets) current.set(item.id, item.offset);
+  for (const item of layout.offsets) current.set(item.id, item.offset);
   index.currentOffsets = current;
   for (const [mesh, groupId] of index.meshGroup) {
     const base = index.basePositions.get(mesh);
@@ -644,6 +724,8 @@ function framingGoal(
   controls: OrbitLike | null,
   padding: number,
   box?: THREE.Box3,
+  /** 0 = 保持当前视角；1 = 完全正对屏幕（平面展开时用） */
+  frontBias = 0,
 ): FramingGoal {
   const target = (box ?? explodedBounds(index)).clone();
   const size = target.getSize(new THREE.Vector3());
@@ -653,8 +735,34 @@ function framingGoal(
   const direction = camera.position.clone().sub(lookAt);
   if (direction.lengthSq() < 1e-6) direction.set(0, 0, 1);
   direction.normalize();
+
+  /**
+   * 平面展开时镜头必须转到正面：否则二维排布会以透视斜角出现，
+   * 「同一平面」的观感立刻消失。这里用插值而不是硬切，滚动过程中镜头是连续转过去的。
+   */
+  const bias = Math.min(1, Math.max(0, frontBias));
+  if (bias > 0) {
+    const front = new THREE.Vector3(0, 0.04, 1).normalize();
+    direction.lerp(front, bias).normalize();
+  }
+
+  /**
+   * 完全展开时按视锥精确适配：横竖两个方向都装得下，且不受结构大小差异影响。
+   * 组装态沿用原来的「最大边 × padding」，保持既往观感。
+   */
+  let distance: number;
+  if (bias > 0.05) {
+    const fov = (camera.fov * Math.PI) / 180;
+    const aspect = camera.aspect || 1;
+    const distY = size.y / (2 * Math.tan(fov / 2));
+    const distX = size.x / (2 * Math.tan(fov / 2) * Math.max(aspect, 1e-3));
+    distance = Math.max(distY, distX, maxDim * 0.2) * padding;
+  } else {
+    distance = maxDim * padding;
+  }
+
   return {
-    position: center.clone().add(direction.multiplyScalar(maxDim * padding)),
+    position: center.clone().add(direction.multiplyScalar(distance)),
     target: center,
   };
 }
@@ -781,7 +889,7 @@ function ModelRig({
 
   /* 位移 + 可见性 + 淡化 + 外壳渐隐：一次算清，避免互相覆盖 */
   useLayoutEffect(() => {
-    applyExplosion(index, clampProgress(progress));
+    applyExplosion(index, clampProgress(progress), onlySystemId);
     const look = applySceneLook(
       index,
       isolateStructureId,
@@ -816,7 +924,9 @@ function ModelRig({
         target: (controls?.target ?? index.bounds.getCenter(new THREE.Vector3())).clone(),
       };
     }
-    setCameraGoal(framingGoal(index, camera, controls, FOCUS_PADDING, box));
+    /* 器官详解页（隔离单器官）取景更近：让该器官占据画面主体，与人体探索明显不同 */
+    const padding = isolateStructureId ? 1.82 : FOCUS_PADDING;
+    setCameraGoal(framingGoal(index, camera, controls, padding, box));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusRequest?.id, focusRequest?.nonce]);
 
@@ -841,10 +951,16 @@ function ModelRig({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStructureId]);
 
-  /* 拆解程度变化 / 复位：重新取景，保证拆开的整体始终在画面里 */
+  /* 拆解程度变化 / 复位：重新取景，保证展开后的平面阵列始终完整在画面里 */
   useEffect(() => {
     if (focusRequest) return; // 已聚焦或隔离时不抢镜头
-    setCameraGoal(framingGoal(index, camera, controls, 1.75));
+    const t = clampProgress(progress);
+    const eased = t * t * (3 - 2 * t);
+    /* 前 15% 保持原视角，之后镜头连续转到正面；不是硬切 */
+    const bias = Math.min(1, Math.max(0, (eased - 0.15) / 0.55));
+    setCameraGoal(
+      framingGoal(index, camera, controls, bias > 0.05 ? 1.04 : 1.75, undefined, bias),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, progress, resetNonce]);
 
@@ -926,13 +1042,17 @@ function ModelRig({
       }
       const focusPoint = controls?.target ?? new THREE.Vector3();
       const largestGroups = [...index.groups]
-        .sort((a, b) => b.radius - a.radius)
+        .filter((group) => !group.shell)
+        .sort(
+          (a, b) =>
+            Math.max(b.size[0], b.size[1], b.size[2]) - Math.max(a.size[0], a.size[1], a.size[2]),
+        )
         .slice(0, 8)
         .map((group) => {
           const offset = index.currentOffsets.get(group.id) ?? ZERO_OFFSET;
           return {
             id: group.id,
-            radius: group.radius,
+            radius: Math.max(group.size[0], group.size[1], group.size[2]) / 2,
             offsetMagnitude: Math.hypot(offset[0], offset[1], offset[2]),
             meshCount: index.groupMeshCount.get(group.id) ?? 0,
           };
@@ -942,6 +1062,11 @@ function ModelRig({
         centers,
         radii,
         screen,
+        planar: {
+          unitCount: index.currentLayout?.unitCount ?? 0,
+          bounds: index.currentLayout?.bounds ?? null,
+          unitDepthSpread: index.currentLayout?.unitDepthSpread ?? 0,
+        },
         camera: {
           position: [camera.position.x, camera.position.y, camera.position.z],
           target: [focusPoint.x, focusPoint.y, focusPoint.z],

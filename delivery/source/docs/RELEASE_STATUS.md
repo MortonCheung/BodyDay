@@ -6,20 +6,23 @@
 > **V2.1（2026-10-16）**：赛前最后一轮交互纠偏后，交互改为**滚轮驱动拆解**、选中为**高亮 + 其余淡化**、
 > 取消选中**恢复原视角**、默认人体**中性化公开展示**；完整复现证据与读数见 `docs/v2/06_PUBLIC_PRESENTATION.md`。
 > 下文凡标注「V2.1」的数字与表述，均与 V2（2026-10-15）口径区分。
-> **2026-10-18 增量修订（本版）**：采用**路线 B**（保留自建三维舞台，**未**移植 Human Atlas 拆解引擎，见 `FINAL_HANDOFF_20261018.md` §1）；
-> 新增**入口同节点形变**，右信息栏收敛为**「当前对象」**（通用结构卡 / 已登记实体科普卡）；
-> 导航最终收敛为**三项主导航——人体探索（`#/explore`）/ 器官详解（`#/detail/heart`）/ 关于（`#/about`）**，旧「五项层级顶栏（身体 / 系统 / 器官 / 细胞 / 关于）」与「自由探索 / 引导教学」双模式已全部删除；
-> 门禁更新为 tsc **0 错误** / oxlint **0 error · 14 warning** / vitest **90/90** / `npm run build` 通过（2026-10-18 实测）；
-> 演示视频为真实浏览器录屏成片 `delivery/demo/BodyDay_最终演示.mp4`（1920×1080，H.264；时长以 `delivery/demo/VIDEOCRAFT_PRODUCTION_LOG.md` 的 ffprobe 实测为准）；**🔴 远端推送结果需人工确认**（本地实测 ahead 4）。
+> **2026-10-18 最终修订（本版）**：主导航为**三项——人体探索 / 器官详解 / 关于**；
+> 滚轮展开改为**真正的二维平面打包**（16 个布局单元，展开到 98% 时单元中心 z 跨度 0.000078）；
+> 系统筛选与选中状态解耦（切筛选即清空旧焦点并重新取景，筛选项只含有可见网格的系统）；
+> **点击完整器官直接进入详解**（心 / 脑 / 肺 / 脾，来自人工核对的 `organBridge`），详情页有真实局部结构热点；
+> 空白 / Esc 分层返回；开场增加随真实进度转动的齿形环；
+> 门禁：tsc **0 错误** / oxlint **0 error · 14 warning** / vitest **87/87** / `npm run build` 通过（2026-10-18 实测）；
+> 演示视频 `delivery/demo/BodyDay_最终演示.mp4`（1920×1080 / H.264 / **167.63 s**，ffprobe 实测）；
+> 代码提交 `f7daf0c`，已推送 `main` 与 `feat/bodyday-immersive-v2`。
 
 ## 1. Git 与仓库
 
 | 项 | 值 |
 |---|---|
 | 远端 | `https://github.com/MortonCheung/BodyDay.git`（沿用原仓库，未新建） |
-| main | 已推送至提交 `aea1669`（V1「单空间工作台」版本的最终提交） |
-| V2 开发分支 | `feat/bodyday-immersive-v2`（从 `main` 的 `aea1669` 起演进）；V2、**V2.1（2026-10-16）** 与 **10/18 增量**均提交到该分支（V2：`bdf738f`、`78f5044`、`9a3dbfa`、`c90be71`；V2.1：`00ecd95`、`7899bbf`、`c3df657`；10/18：`3c2e1d4`、`c06b49a`、`b014e17`，当前 HEAD = `b014e17`），**不合并 main、不 force push** |
-| 远端推送状态 | 🔴 **需人工确认**：`origin/feat/bodyday-immersive-v2` 实测停在 `7899bbf`，本地 **ahead 4**（`c3df657`、`3c2e1d4`、`c06b49a`、`b014e17` 未推送）；本日推送曾被网络阻断，最终以人工 `git push origin feat/bodyday-immersive-v2` 的返回为准 |
+| 当前分支 | `feat/bodyday-immersive-v2` |
+| 最终代码提交 | **`f7daf0c`**（平面展开 / 筛选解耦 / 点器官直跳详情 / 空白分层返回） |
+| 远端状态 | ✅ 已推送：`main` 与 `feat/bodyday-immersive-v2` 均指向本提交（快进，未 force push） |
 | 回滚点 | Git 标签 `pre-1018-baseline`（`^{commit}` 实测 → `c3df657`）；`git checkout pre-1018-baseline` 只读查看，`git reset --hard pre-1018-baseline` **🔴 需人工确认** |
 | 旧代码处理 | 旧「寝室 3D Demo」归档于 `body-day/src/legacy/dorm/`；V2 删除的 V1 文件保留在 Git 历史中，可随时回退 |
 

@@ -131,6 +131,12 @@ export interface StructureHit {
   name: string | null;
   /** atlas 系统 ID（如 nervous） */
   systemId: string | null;
+  /**
+   * 被点结构与已登记结构之间隔了几层解剖父链。
+   * 0 = 点的就是该结构自身；1 = 直接子结构（心腔、肺叶）；≥2 = 更深的局部（脑回等）。
+   * 用于判断「这一次点击是否等于点中了完整器官本体」。
+   */
+  depthToKnown: number;
 }
 
 /** 点选结果 → 可展示的结构信息（把内部 ID 挡在用户界面之外）。 */
@@ -144,6 +150,8 @@ export interface StructureInfo {
   system: string | null;
   /** 被点中的细分结构（与 targetId 不同时才有意义） */
   partName: string | null;
+  /** 与 `StructureHit.depthToKnown` 同义，供界面判断是否属于完整器官入口 */
+  depthToKnown: number;
 }
 
 export function describeStructure(hit: StructureHit): StructureInfo {
@@ -158,5 +166,6 @@ export function describeStructure(hit: StructureHit): StructureInfo {
     name: (hit.knownStructureId ? STRUCTURE_LABELS[hit.knownStructureId] : null) ?? hit.name,
     system: systemLabel(hit.systemId),
     partName,
+    depthToKnown: hit.depthToKnown,
   };
 }

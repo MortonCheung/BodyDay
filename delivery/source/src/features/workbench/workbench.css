@@ -56,6 +56,19 @@
   line-height: 1.6;
 }
 
+/* 详情页的局部结构热点：贴在舞台左下角，只在这个器官有真实子结构时出现 */
+.bd-wb-parts {
+  position: absolute;
+  left: var(--bd-space-3);
+  bottom: calc(var(--bd-space-7) + 10px);
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 64%;
+}
+.bd-wb-parts .bd-chip { background: color-mix(in srgb, var(--bd-paper) 88%, transparent); }
+
 /* 中央：唯一舞台，占据主要宽度 */
 .bd-wb-column {
   position: relative;

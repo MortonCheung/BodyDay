@@ -1,0 +1,67 @@
+{
+  "齿形开场": {
+    "count": 2,
+    "transforms": [
+      "transform: rotate(0deg);",
+      "transform: rotate(0deg);"
+    ],
+    "morph": {
+      "width": 240,
+      "height": 3
+    }
+  },
+  "就绪后齿环收合": {
+    "count": 2,
+    "opacity": [
+      "0",
+      "0"
+    ],
+    "settled": "true"
+  },
+  "拖动不触发跳转/选中": {
+    "before": "#/explore",
+    "after": "#/explore",
+    "unchanged": true,
+    "paperText": "收起点选任一结构，这里显示它的知识与健康关联。"
+  },
+  "点击心脏": {
+    "hash": "#/detail/heart",
+    "url": "http://localhost:5173/#/detail/heart"
+  },
+  "详情页": {
+    "parts": [
+      "Left atrium",
+      "Left ventricle",
+      "Right atrium",
+      "Right ventricle"
+    ],
+    "canvas": 1,
+    "paper": "收起返回探索心脏Heart心脏是循环系统的动力泵，通过有节律的收缩把血液推向肺与全身。四个腔右心房、右心室、左心房、左心室；左右两侧由室间隔"
+  },
+  "详情页点热点": {
+    "paper": "收起返回探索Left atrium"
+  },
+  "Esc 第一次（清热点）": {
+    "hash": "#/detail/heart"
+  },
+  "Esc 第二次（返回探索）": {
+    "hash": "#/explore"
+  },
+  "连续切换系统": {
+    "神经系统": {
+      "visible": 234,
+      "progress": 0.9800000000000004
+    },
+    "呼吸系统": {
+      "visible": 6,
+      "progress": 0.9800000000000004
+    },
+    "全部": {
+      "visible": 734,
+      "progress": 0.9800000000000004
+    }
+  },
+  "控制台": {
+    "errors": []
+  }
+}

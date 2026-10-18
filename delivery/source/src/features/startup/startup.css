@@ -20,6 +20,30 @@
 }
 
 /* 进度条 → 按钮：同一个节点，靠 data-ready 改尺寸与底色 */
+.bd-entry__rig {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 齿环：随真实加载进度转动，就绪收合后消失，不阻挡点击 */
+.bd-entry__gear {
+  position: absolute;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin-top: -23px;
+  color: var(--bd-ink-muted);
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 380ms var(--bd-ease);
+  will-change: transform;
+}
+.bd-entry__gear--left { right: calc(100% + 26px); }
+.bd-entry__gear--right { left: calc(100% + 26px); }
+.bd-entry__rig[data-settled="true"] .bd-entry__gear { opacity: 0; }
+
 .bd-entry__morph {
   position: relative;
   display: block;
